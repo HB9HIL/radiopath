@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 : "${E2E_SMTP_HOST:=localhost}"
 : "${E2E_MAILPIT_URL:=http://localhost:8025}"
 : "${E2E_ADMIN_TOKEN:=e2e-only-admin-token-not-a-secret-1234}"
-: "${CYPRESS_IMAGE:=cypress/included:15.21.1}"
+: "${CYPRESS_IMAGE:=cypress/included:16.1.1}"
 export E2E_BIN E2E_BASE_URL E2E_DATABASE_URL E2E_MAILPIT_URL E2E_ADMIN_TOKEN
 
 [ -x "$E2E_BIN" ] || { echo "$E2E_BIN missing, run make build" >&2; exit 1; }
