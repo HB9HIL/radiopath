@@ -10,7 +10,7 @@
         {
             "matchDatasources": ["docker"],
             "matchPackageNames": ["/(^|/)valkey/valkey$/"],
-            "allowedVersions": "9.1.x"
+            "allowedVersions": "/^9\\.1(\\.|-|$)/"
         },
         {
             "matchPackageNames": ["go", "/(^|/)golang$/"],
@@ -18,8 +18,16 @@
         },
         {
             "matchDatasources": ["docker"],
-            "matchPackageNames": ["/(^|/)postgres$/"],
-            "allowedVersions": "/^18(\\.|-|$)/"
+            "matchPackageNames": ["/(^|/)postgis$/"],
+            "allowedVersions": "/^17-/"
+        }
+    ],
+    "customManagers": [
+        {
+            "customType": "regex",
+            "managerFilePatterns": ["/^e2e/e2e\\.sh$/"],
+            "matchStrings": ["CYPRESS_IMAGE:=(?<depName>cypress/included):(?<currentValue>[^}\"]+)"],
+            "datasourceTemplate": "docker"
         }
     ]
 }
