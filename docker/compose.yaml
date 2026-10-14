@@ -20,7 +20,7 @@ services:
       - "6380:6379"
 
   mailpit:
-    image: axllent/mailpit:v1.31.3
+    image: axllent/mailpit:v1.31.5
     ports:
       - "1025:1025"
       - "8025:8025"
