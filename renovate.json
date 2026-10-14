@@ -3,6 +3,7 @@
     "extends": [
         "config:recommended"
     ],
+    "npmrc": "allow-remote=all",
     "postUpdateOptions": [
         "gomodTidy"
     ],
