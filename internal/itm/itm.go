@@ -155,10 +155,6 @@ func pointToPoint(pfl []float64, p Params) (Result, error) {
 	return r, nil
 }
 
-func FreeSpaceLoss(distanceM, freqMHz float64) float64 {
-	return freeSpaceLoss(distanceM, freqMHz)
-}
-
 func fdim(x, y float64) float64 {
 	if x > y {
 		return x - y

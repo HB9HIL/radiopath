@@ -102,8 +102,8 @@ network and mounts the repo at its own path. The specs in
 ownership, the account page, the admin panel and the mail flows (registration,
 confirmation, password reset). Map tiles are stubbed in the browser, nothing reaches
 the tile server. The GitHub Actions workflow (`.github/workflows/ci.yml`) runs
-gofmt, vet and the unit tests, checks that the committed stylesheet and the Helm
-chart are in order, and runs the same e2e script with PostGIS and Mailpit as
+gofmt, vet and the unit tests, checks that the committed stylesheet is in
+order, and runs the same e2e script with PostGIS and Mailpit as
 services.
 
 ## DEM from S3
@@ -416,62 +416,21 @@ sum(rate(radiopath_http_requests_total{code=~"5.."}[5m]))
 histogram_quantile(0.9, sum by (le) (rate(radiopath_coverage_job_duration_seconds_bucket[1h])))
 ```
 
-In Kubernetes the chart puts `containerPort: 9090` on web and worker pods and,
-with `metrics.podMonitor.enabled`, adds a PodMonitor that selects both
-components directly. There is no Service for the metrics port on purpose: a
-Service selector is equality only and could not say "web or worker", and the
-existing one skips worker pods in production anyway (`worker.serveWeb: false`).
-The PodMonitor needs the Prometheus operator CRD; if your Prometheus filters
-PodMonitors by label, set `metrics.podMonitor.labels`.
-
 ## Kubernetes
 
-The Helm chart in [radiopath/helmchart](https://github.com/radiopath/helmchart)
-renders web pods (`RADIOPATH_WORKERS=0`,
-behind a Service and a Traefik Ingress), worker pods (`RADIOPATH_WORKERS=1`, a
-computation uses all CPUs up to the pod limit) and a Valkey for the tile cache.
-Database and DEM storage are external. The chart's `values-example.yaml` shows the
-values a deployment needs; secrets (`DATABASE_URL`, the S3 keys, the SMTP
-password) come from an existing Secret named by `envFromSecret`:
-
-```sh
-kubectl -n radiopath create secret generic radiopath-env --from-literal=DATABASE_URL=... --from-literal=RADIOPATH_DEM_S3_ACCESS_KEY=... --from-literal=RADIOPATH_DEM_S3_SECRET_KEY=...
-git clone https://github.com/radiopath/helmchart && cd helmchart
-helm upgrade --install radiopath . -n radiopath -f values-example.yaml --set image.tag=<tag>
-kubectl -n radiopath exec -it deploy/radiopath -- /radiopath useradd <name>
-```
-
-Workers can be autoscaled on CPU (HPA, needs metrics-server), one job each,
-spread over nodes; `worker.serveWeb` also routes web traffic to worker pods,
-which is fine for a small setup and slow while a coverage is computing.
-
-`ingress.hosts` lists every name a release answers on. Setting
-`ingress.canonicalHost` to one of them makes that host the only one serving the
-app: it gets its own Ingress, and all the others share a second Ingress with a
-Traefik `Middleware` that answers 301, one URL per site, which is what search
-engines want. Two Ingresses because Traefik applies the middleware annotation to
-every router of an Ingress, so the canonical host has to stand apart.
-
-Certificates come from cert-manager. `ingress.tls.clusterIssuer` defaults to
-`letsencrypt`; the chart writes the `cert-manager.io/cluster-issuer` annotation
-and derives the Secret names (`<release>-tls`, and `<release>-redirect-tls` for
-the redirect Ingress, since one shared name would leave two Certificates fighting
-over one Secret with different SAN lists). Issuance is http-01, so every host in
-`ingress.hosts` needs DNS pointing at the cluster before its certificate can be
-issued. On a cluster without cert-manager set `ingress.tls.clusterIssuer: ""`,
-otherwise Traefik answers with its self-signed default certificate.
+The Helm chart, its values and the ingress/certificate setup are documented in
+[radiopath/helmchart](https://github.com/radiopath/helmchart). What the app
+itself offers an orchestrator:
 
 - `GET /healthz` liveness, `GET /readyz` readiness (database ping, DEM source
   reachable, Redis ping when configured).
 - `GET /metrics` on port 9090, a separate listener that is in no Service and no
-  Ingress; scraped by the PodMonitor from `metrics.podMonitor.enabled`, see
-  "Metrics" above.
+  Ingress, see "Metrics" above.
 - Memory: about `RADIOPATH_DEM_CACHE_TILES` x 26 MB (x 39 MB with a canopy
   layer) plus 100 MB per pod.
 - Shutdown on SIGTERM requeues running jobs and drains connections for up to 10 s.
 - Migrations run at startup under a Postgres advisory lock, so any number of
   replicas may start at once.
-- Registration is off in the chart; create the first user with `useradd` as above.
 
 ## Model notes
 

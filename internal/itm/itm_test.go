@@ -85,7 +85,7 @@ func TestPointToPointFlat(t *testing.T) {
 	if r.Mode != ModeLineOfSight {
 		t.Errorf("mode = %s, want line of sight", r.Mode)
 	}
-	fs := FreeSpaceLoss(333*30, 145)
+	fs := freeSpaceLoss(333*30, 145)
 	if r.LossDB < fs-1 || r.LossDB > fs+30 {
 		t.Errorf("loss = %.1f dB, free space %.1f dB", r.LossDB, fs)
 	}
@@ -112,7 +112,7 @@ func TestPointToPointErrors(t *testing.T) {
 }
 
 func TestFreeSpaceLoss(t *testing.T) {
-	if got := FreeSpaceLoss(1000, 1000); math.Abs(got-92.45) > 1e-9 {
+	if got := freeSpaceLoss(1000, 1000); math.Abs(got-92.45) > 1e-9 {
 		t.Errorf("FSL = %v", got)
 	}
 }
