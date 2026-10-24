@@ -22,13 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci --no-audit --no-fund
       - run: cp internal/web/static/app.css committed.css
-      - run: npx tailwindcss -i internal/web/ui/app.css -o internal/web/static/app.css --minify
+      - run: make css
       - run: cmp committed.css internal/web/static/app.css || { echo "app.css is stale, run 'make css' and commit"; exit 1; }
 
   e2e:

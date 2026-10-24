@@ -12,6 +12,10 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "radiopath"]
+      interval: 1s
+      retries: 30
 
   valkey:
     image: valkey/valkey:9.1-alpine
@@ -24,6 +28,16 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
+
+  # Stylesheet build, run by the Makefile (make css, make dev); never started by up.
+  node:
+    image: node:26-alpine
+    profiles: [tools]
+    working_dir: /src
+    environment:
+      HOME: /tmp
+    volumes:
+      - ..:/src
 
 volumes:
   pgdata:

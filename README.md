@@ -27,8 +27,8 @@ around a transmitter, computed along radials and stored as PNG).
 
 ## Configuration
 
-All configuration is via environment variables. For local development copy
-`.env.example` to `.env` (gitignored); `make run` exports it. In Kubernetes set
+All configuration is via environment variables. For local development `make dev`
+copies `.env.example` to `.env` (gitignored) and loads it. In Kubernetes set
 the same variables on the Deployment, secrets via `secretKeyRef`.
 
 | Variable | Default | Description |
@@ -68,15 +68,18 @@ Migrations are embedded and applied at startup.
 ## Development
 
 ```sh
-make db-up                 # PostGIS, Valkey and Mailpit via docker compose
-mkdir dem && cd dem && curl -sSLO https://step.esa.int/auxdata/dem/SRTMGL1/N47E009.SRTMGL1.hgt.zip && unzip *.zip
-make run                   # creates .env from .env.example on first run, builds the CSS, then http://localhost:8080
+make dev                   # http://localhost:8080, login dev / devpassword; Ctrl-C stops everything
 make test
-make css-watch             # rebuild the stylesheet while editing templates
 ```
 
-`make run` and `make build` need Node for the stylesheet (see below), `make e2e`
-additionally needs Docker; `go build`, `go test` and the Docker image do not.
+`make dev` creates `.env` from `.env.example` on first start, clones the terrain
+and canopy tiles of [radiopath/testfiles](https://github.com/radiopath/testfiles)
+(N47E009 only) into `tmp/testfiles`, starts PostGIS, Valkey and Mailpit
+(http://localhost:8025) via docker compose, rebuilds the stylesheet on every
+template change and runs the server in the foreground. Node only runs in the
+`node` compose service; the host needs Go and Docker, nothing else. `make css`
+builds the committed stylesheet once, `go build`, `go test` and the Docker image
+need no Node at all.
 
 Releases: note the changes under `## [Unreleased]` in `CHANGELOG.md`, move them
 into a `## [X.Y.Z] - date` section and push the tag `vX.Y.Z`. The release
@@ -87,7 +90,7 @@ Linux binaries for amd64 and arm64 and pushes the multi-arch image
 ### End-to-end tests
 
 ```sh
-make db-up                 # also starts Mailpit, the mail catcher (http://localhost:8025)
+make dev                   # in a second terminal: Postgres and Mailpit (http://localhost:8025) for the e2e server
 make e2e                   # builds the binary, starts it on :8081 against the database radiopath_e2e, runs Cypress
 make e2e-open              # same, interactive runner
 ```
@@ -302,7 +305,7 @@ Server-rendered `html/template`, no JS framework; Leaflet is the only script.
 Styling is Tailwind CSS v4: the source is `internal/web/ui/app.css`, the built
 stylesheet `internal/web/static/app.css` is committed and embedded, so nothing
 but Go is needed to build or deploy the app. After changing a template or the
-source CSS run `make css` (or `make css-watch`) and commit the result; the CI
+source CSS run `make css` (`make dev` keeps it current) and commit the result; the CI
 job `lint-css` rebuilds it and fails if the committed file is stale.
 
 A computed coverage page can show the other computed rasters together with its
