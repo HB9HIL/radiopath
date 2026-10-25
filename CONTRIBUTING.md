@@ -1,7 +1,8 @@
 # Contributing to Radiopath
 
-Thanks for helping. This guide explains how to set up a development environment, how the code is organised and
-what a change needs before it can be merged. README.md covers running and operating Radiopath.
+Thanks for helping. This guide lists the rules for a change: how to work, what to check and how to document it.
+The details live in the [documentation](docs/README.md), starting with the
+[development tutorial](docs/tutorials/getting-started.md).
 
 Bug reports and feature ideas are welcome as GitHub issues. For larger changes, open an issue first so we can agree
 on the approach before you spend time on it.
@@ -23,58 +24,12 @@ Node, Playwright) runs in containers. Please don't install or run npm on the hos
 Linux inside `node:26-alpine` and shared with the containers.
 
 ```sh
-make dev
+make dev    # http://localhost:5173, login dev / devpassword; Ctrl-C stops everything
 ```
 
-starts the whole stack: PostGIS, Valkey and Mailpit in Docker, the Go server in the background and the Vite dev
-server in the foreground. Open http://localhost:5173 and log in as `dev` / `devpassword`; mails end up in Mailpit at
-http://localhost:8025, the admin token is in `.env` (created from `.env.example` on first start). Terrain and canopy
-tiles for one area (N47E009, eastern Switzerland) are cloned from
-[radiopath/testfiles](https://github.com/radiopath/testfiles) into `tmp/testfiles`. Ctrl-C stops everything.
-
-| Command | What it does |
-|---|---|
-| `make dev` | local stack, app on http://localhost:5173 |
-| `make test` | Go unit tests |
-| `make vet` | `go vet ./...` |
-| `make check` | svelte-check and the Prettier check of the web app |
-| `make format` | formats TypeScript and Svelte with Prettier |
-| `make api` | regenerates `web/openapi.json` and `web/src/lib/api.gen.ts` after an API change |
-| `make web` | builds the web app into `internal/webui/dist` |
-| `make build` | web app and a local binary in `bin/` |
-| `make e2e` | builds everything and runs the Playwright end-to-end tests in Docker |
-| `make docker` | builds the production image |
-| `go tool staticcheck ./...` | static analysis |
-| `python3 scripts/funcdoc.py` | checks that every function has a doc comment |
-
-`go vet`, `go test` and `go build` need `internal/webui/dist` to exist; `make test` and `make vet` create an empty
-placeholder when the web app has not been built.
-
-## How the code is organised
-
-```
-cmd/radiopath/        main: configuration, server, workers, metrics; subcommands openapi, useradd, userdel, users
-internal/
-  web/                HTTP layer: JSON API (huma), auth, admin panel, reports, share links, job events
-  webui/              embeds the built web app
-  store/              PostgreSQL/PostGIS access, embedded migrations in store/migrations/
-  worker/             background coverage jobs
-  coverage/ link/     area coverage and point-to-point analysis
-  itm/                Irregular Terrain Model (Longley-Rice) port
-  dem/ s3/            terrain and canopy tiles from a directory or S3
-  antenna/ plot/      antenna patterns, SVG plots, raster PNGs and legends
-  report/ tiles/      PDF reports, map tile proxy
-  mail/ metrics/ geo/ SMTP, Prometheus, geodesy
-web/                  SvelteKit app (Svelte 5, TypeScript, Tailwind CSS 4, shadcn-svelte, TanStack Query, Leaflet)
-e2e/                  Playwright end-to-end tests
-docker/               compose stacks for development and e2e, Dockerfiles
-scripts/              doc comment check, DEM and canopy sync scripts
-```
-
-One Go binary serves everything: the JSON API under `/api`, the web app (a static single-page app embedded in the
-binary), a small server-rendered admin panel, map tiles, raster images and PDF reports. The web app talks to the
-server only through the API, which is described by OpenAPI at `/api/openapi.json` with interactive docs at
-`/api/docs`.
+The [development tutorial](docs/tutorials/getting-started.md) walks through the first start and a first change;
+[Development commands and CI](docs/reference/development.md) lists every make target and check, and
+[Architecture](docs/explanation/architecture.md) explains how the code is organised.
 
 ## Conventions
 
@@ -97,6 +52,7 @@ server only through the API, which is described by OpenAPI at `/api/openapi.json
 - Validate input with the `check` helper, so errors come back as one RFC 7807 problem (422) with
   `errors[].location` pointing at the field.
 - The API is not versioned: changes must be backwards compatible. Add fields, don't rename or remove them.
+- Step by step: [Add an API operation](docs/how-to/add-an-api-operation.md).
 - After changing an operation or a type, run `make api` and commit `web/openapi.json` and
   `web/src/lib/api.gen.ts` with your change. CI fails when they are out of date.
 
@@ -115,12 +71,9 @@ server only through the API, which is described by OpenAPI at `/api/openapi.json
 
 ### End-to-end tests
 
-- Specs live in `e2e/tests/`. Each spec file gets its own user (created in `global-setup.js` through the admin
-  panel), so files run in parallel without seeing each other's data; tests inside a file build on each other.
-- Find alerts by `[role=alert]`, dialogs by `getByRole('dialog')`, forms by their `aria-label` or field names.
-- After a click that navigates inside the app, wait for the new page (for example its heading) before filling in
-  fields.
-- A change to the user interface should come with a test that covers it.
+- A change to the user interface comes with an end-to-end test that covers it.
+- Each spec file has its own user; tests inside a file build on each other. How to write and run them:
+  [Run and write end-to-end tests](docs/how-to/run-and-write-e2e-tests.md).
 
 ## Before you open a pull request
 
@@ -129,7 +82,8 @@ server only through the API, which is described by OpenAPI at `/api/openapi.json
 3. `make api` leaves no diff if you touched the API.
 4. `make e2e` passes if you changed behaviour that the end-to-end tests cover or should cover.
 5. `CHANGELOG.md` has an entry for your change under `## [Unreleased]` (see below).
-6. README.md is updated when configuration, behaviour or operation changes.
+6. The documentation in `docs/` is updated in the same pull request when configuration, behaviour, operation or
+   the way of working changes (see below).
 
 CI runs all of these on every pull request: formatting, vet, staticcheck, unit tests with the race detector,
 govulncheck, the doc comment check, the API description check, svelte-check, Prettier and the end-to-end tests.
@@ -161,6 +115,25 @@ section of a version becomes the notes of the GitHub release. Keep it current wi
 ### Fixed
 - The link report showed the RX gain in the TX row (by @your-handle)
 ```
+
+## Documentation
+
+Documentation lives in `docs/` and follows the [Diátaxis](https://diataxis.fr) framework. Every page is one of
+four kinds, chosen by what the reader needs, not by its topic:
+
+| Kind | Directory | The reader wants to | Example |
+|---|---|---|---|
+| Tutorial | `docs/tutorials/` | learn by doing, guided from start to finish | [Getting started with development](docs/tutorials/getting-started.md) |
+| How-to guide | `docs/how-to/` | reach a specific goal, knowing the basics | [Add an API operation](docs/how-to/add-an-api-operation.md) |
+| Reference | `docs/reference/` | look up exact facts | [Configuration](docs/reference/configuration.md) |
+| Explanation | `docs/explanation/` | understand why it works this way | [Architecture](docs/explanation/architecture.md) |
+
+- Keep the kinds apart: a how-to does not stop to explain design decisions, a reference does not teach. Link to
+  the other kinds instead.
+- Update the documentation in the same pull request as the change it describes, and add new pages to the index in
+  [docs/README.md](docs/README.md).
+- `README.md` stays a short entry page: what Radiopath is, how to run it, where the documentation is.
+- Write in English, in short sentences; name variables, routes and commands exactly as they are in the code.
 
 ## Commits and pull requests
 

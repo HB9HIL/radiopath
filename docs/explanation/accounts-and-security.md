@@ -1,0 +1,101 @@
+# Accounts, sharing and the admin panel
+
+How logins, sessions, rate limits, share links and the admin panel work, and why they are built that way.
+
+## Login and sessions
+
+Everything except the login, registration and password reset pages, the tile
+proxy `/tiles/`, `/healthz`, `/readyz` and the share links under `/s/` (see
+below) requires a login: the API answers 401 without a session, and the app
+sends the browser to `/login`, back to the page afterwards. Users
+can register themselves unless `RADIOPATH_REGISTRATION=false`; names are 3 to
+32 characters (letters, digits, `._-`) and unique ignoring case, passwords need
+10 characters (at most 72). Registering asks for an email address and mails a
+confirmation link (24 hours); the account cannot log in before it is opened
+(and is deleted after 7 days if it never is),
+and logging in with the right password meanwhile offers a button for a fresh
+link (3 per account per hour). Under
+the user name in the header, `/account` changes the address (again by
+confirmation link, the old one stays until then) and the password (the old
+one is required, every other session is logged out). `/forgot` mails a reset
+link (one hour) and answers the same whether or not the address is known.
+Links are random tokens stored hashed, like sessions, and used once.
+Sites, links, coverages and antenna patterns belong to the user
+who created them; nobody else sees them except through a share link the owner
+switched on, and deleting a user deletes their data with them. One account can hold 200 sites and 50 coverages and have 2 coverage
+jobs queued or running at a time (constants in `internal/store/store.go`), so
+an open registration cannot fill the database or block the workers. Accounts can also be
+managed with the binary, see [Operations](../reference/operations.md#user-accounts-from-the-command-line).
+
+Passwords are stored as bcrypt hashes. Sessions live in PostgreSQL (cookie holds
+a random token, the table its SHA-256), so any replica can serve any session and
+logout revokes it. A session expires seven days after it was last used and
+thirty days after the login that created it, whichever comes first: the row's
+expiry is pushed back out on use, but never past that cap, so an abandoned
+login and a stolen cookie both die within a week
+(`sessionIdle` and `sessionTTL` in `internal/web/auth.go`). Refreshing writes at
+most once per session per hour, not once per request. The cookie is `HttpOnly`, `SameSite=Lax` and
+`Secure` when the request came over TLS or with `X-Forwarded-Proto: https`; make
+sure the ingress sets that header. CSRF protection uses Go's
+`http.CrossOriginProtection` (Sec-Fetch-Site / Origin checks on every POST),
+so requests carry no tokens. Every response carries `X-Content-Type-Options:
+nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`; TLS and
+HSTS are the ingress's job.
+
+Rate limits are counted in PostgreSQL, so they hold across replicas: 20 failed
+logins per IP and 5 per user name in 15 minutes, 5 registration attempts per IP
+per hour, 5 reset requests per IP and 3 per address per hour, 3 confirmation
+mails per account per hour, 120 requests per shared object per hour; further
+requests get HTTP 429. Behind an ingress set
+`RADIOPATH_TRUST_PROXY=true` so the client IP is read from `X-Forwarded-For`
+(last hop); without it every request would count against the ingress address.
+
+## Share links
+
+A link or a coverage can be published read-only: "Share" on its page opens a
+dialog that hands out a URL like `https://radiopath.example.org/s/l/<token>` that
+shows the same page — profile, map, tables and the PDF — to anyone, without an
+account. A shared coverage comes with the map as the owner arranged it: the
+raster opacity, the range circles and the other coverages merged into the map are
+stored on the coverage and published with it, so a multi-site picture stays a multi-site picture. It is valid 30 days, "Extend by 30 days" pushes that out while keeping
+the URL, "Revoke" kills it immediately. The visitor sees no navigation, no
+account name and no other object of the owner; nothing on the page can change
+or recompute anything. The token is what grants access, so treat the URL as the
+secret: shared pages are sent `X-Robots-Tag: noindex`, their rasters and
+reports also `Cache-Control: no-store`, but a URL pasted somewhere public is
+public. The page and the API call behind it (`/api/share/links/<token>`,
+`/api/share/coverages/<token>`) count against the same 120 requests per hour.
+
+## Admin panel
+
+With `RADIOPATH_ADMIN_TOKEN` set, `/admin` lists the users with their address
+and confirmation state and can create them (without an address, confirmed),
+set passwords, revoke sessions and delete accounts (together with the user's
+data). It is not an account: there
+is no admin user, no role column, and therefore nothing to lock yourself out of
+— deleting every user leaves the panel reachable. Without the variable the
+routes are not registered at all and `/admin` behaves like any other unknown
+path.
+
+The token is checked once against a form, after which a cookie signed with that
+token carries the session for eight hours: no server-side state, so every
+replica accepts it. Rotating the token invalidates every admin cookie — in
+Kubernetes that means editing the Secret **and** restarting the pods, since the
+value is injected at pod start. Ten wrong attempts per client address in 15
+minutes give HTTP 429, counted in the same table as the login limits. The cookie
+is `HttpOnly`, `SameSite=Strict` and scoped to `/admin`, and admin responses are
+never cached.
+
+Two switches sit above the user list: **Revoke all sessions** logs everyone out
+at once, and **Maintenance mode** blocks new logins and shows a notice on the
+login page instead of the form (HTTP 503; registration is blocked with it).
+Sessions that are already open are deliberately left alone — use both buttons
+together to empty the app. The admin panel itself is unaffected, it does not
+depend on a user session.
+
+Password suggestions are generated in the browser with `crypto.getRandomValues`
+(20 characters from a 64 character alphabet, always containing a lower case
+letter, an upper case letter, a digit and a symbol), so no server response ever
+carries a plaintext password. Without JavaScript the field stays empty and you
+type your own. Passwords are only ever stored as bcrypt hashes and cannot be
+read back.
