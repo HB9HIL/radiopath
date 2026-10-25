@@ -56,13 +56,13 @@ func TestLinkPDF(t *testing.T) {
 	measured := -83.0
 	in := Link{
 		Link: store.LinkWithSites{
-			Link:  store.Link{Name: "b34 > datapark", FreqMHz: 145, TxPowerDBm: 23, TxGainDBi: 27, RxGainDBi: 27, RxSensitivityDBm: -120, Polarization: 1, MeasuredRxDBm: &measured},
-			SiteA: store.Site{Name: "b34", Lat: 47.32253, Lon: 9.43516, AntennaHeightM: 3},
-			SiteB: store.Site{Name: "datapark", Lat: 47.45937, Lon: 9.03081, AntennaHeightM: 30},
+			Link:  store.Link{Name: "Säntis > Hoher Kasten", FreqMHz: 145, TxPowerDBm: 23, TxGainDBi: 27, RxGainDBi: 27, RxSensitivityDBm: -120, Polarization: 1, MeasuredRxDBm: &measured},
+			SiteA: store.Site{Name: "Säntis", Lat: 47.2495, Lon: 9.3433, AntennaHeightM: 3},
+			SiteB: store.Site{Name: "Hoher Kasten", Lat: 47.2836, Lon: 9.4842, AntennaHeightM: 30},
 		},
-		Result: testResult(), TxAntenna: "Mikrotik LHG 5 XL ac", RxAntenna: "Mikrotik LHG 5 XL ac",
-		TxAzimuthDeg: 297, RxAzimuthDeg: 117, ReliabilityPct: 99, User: "hb9hil", Generated: time.Date(2026, 9, 6, 13, 51, 0, 0, time.UTC),
-		Map: flatPNG(MapW, MapH, color.RGBA{230, 235, 225, 255}), View: tiles.Fit(47.32253, 9.03081, 47.45937, 9.43516, MapW, MapH, 80),
+		Result: testResult(), TxAntenna: "Dish 27 dBi", RxAntenna: "Dish 27 dBi",
+		TxAzimuthDeg: 70, RxAzimuthDeg: 250, ReliabilityPct: 99, User: "hb9hil", Generated: time.Date(2026, 9, 6, 13, 51, 0, 0, time.UTC),
+		Map: flatPNG(MapW, MapH, color.RGBA{230, 235, 225, 255}), View: tiles.Fit(47.2495, 9.3433, 47.2836, 9.4842, MapW, MapH, 80),
 	}
 	check(t, "link", buildLink(in))
 

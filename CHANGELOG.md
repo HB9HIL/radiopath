@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `cookie` package of SvelteKit is pinned to 0.7.2 (advisory for versions below 0.7.0); SvelteKit 3 is held back in Renovate until the UI components support it (by @HB9HIL)
 - CodeQL code scanning of the Go code, the web app and the workflows on every push to main, pull request and weekly (by @HB9HIL)
 - The documentation moved from the README into `docs/`, organised as tutorials, how-to guides, reference and explanation (Diátaxis), with a new development tutorial, an architecture overview and guides for API operations, end-to-end tests and releases (by @HB9HIL)
+- The report tests use public summits as sample sites (by @HB9HIL)
 
 ## [1.2.8] - 2026-10-25
 
