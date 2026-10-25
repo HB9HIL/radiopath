@@ -9,3 +9,6 @@ export function offBoresight(deg: number): string {
 
 /** A date as YYYY-MM-DD in local time. */
 export const day = (iso: string) => new Date(iso).toLocaleDateString('sv-SE');
+
+/** A time of day as HH:MM:SS in local time. */
+export const clock = (iso: string) => new Date(iso).toTimeString().slice(0, 8);

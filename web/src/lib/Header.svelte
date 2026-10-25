@@ -10,7 +10,7 @@
 	const nav = [
 		['/sites', 'Sites', 'off'],
 		['/links', 'Links', 'off'],
-		['/coverages', 'Coverage', ''],
+		['/coverages', 'Coverage', 'off'],
 		['/antennas', 'Antennas', 'off']
 	];
 

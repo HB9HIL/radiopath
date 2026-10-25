@@ -21,14 +21,14 @@ type jobEvent struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// newJobEvent converts a job into a client event; Since is the start (running) or queue (queued) time as local HH:MM:SS.
+// newJobEvent converts a job into a client event; Since is the start (running) or queue (queued) time in RFC 3339.
 func newJobEvent(j store.Job) jobEvent {
 	e := jobEvent{State: j.State, Worker: j.Worker, Error: j.Error}
 	switch {
 	case j.State == store.JobRunning && j.StartedAt != nil:
-		e.Since = j.StartedAt.Local().Format("15:04:05")
+		e.Since = j.StartedAt.Format(time.RFC3339)
 	case j.State == store.JobQueued && j.QueuedAt != nil:
-		e.Since = j.QueuedAt.Local().Format("15:04:05")
+		e.Since = j.QueuedAt.Format(time.RFC3339)
 	}
 	return e
 }

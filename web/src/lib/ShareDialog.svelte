@@ -9,12 +9,14 @@
 	// create and revoke call the share API of the object; onchange reloads it.
 	let {
 		what,
+		hint = '',
 		share,
 		create,
 		revoke,
 		onchange
 	}: {
 		what: string;
+		hint?: string;
 		share?: Share;
 		create: () => Promise<{ response: Response }>;
 		revoke: () => Promise<{ response: Response }>;
@@ -58,7 +60,7 @@
 					<Input class="max-w-120 font-mono text-xs" readonly value={share.url} onfocus={(e) => e.currentTarget.select()} />
 					<Button variant="outline" onclick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
 				</div>
-				<p class="mt-2 text-xs text-muted-foreground">Anyone with this link sees this page without an account, until {day(share.expires_at)}.</p>
+				<p class="mt-2 text-xs text-muted-foreground">Anyone with this link sees this page without an account, until {day(share.expires_at)}.{hint}</p>
 			</div>
 			<div class="flex flex-wrap gap-3">
 				<Button variant="outline" onclick={() => run(create)}>Extend by 30 days</Button>
@@ -66,7 +68,7 @@
 				<Button variant="outline" onclick={() => (open = false)}>Close</Button>
 			</div>
 		{:else}
-			<p class="text-xs text-muted-foreground">Creates a link that shows this page to anyone without an account, for 30 days.</p>
+			<p class="text-xs text-muted-foreground">Creates a link that shows this page to anyone without an account, for 30 days.{hint}</p>
 			<div class="flex flex-wrap gap-3">
 				<Button onclick={() => run(create)}>Create public link</Button>
 				<Button variant="outline" onclick={() => (open = false)}>Close</Button>

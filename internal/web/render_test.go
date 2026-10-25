@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/radiopath/radiopath/internal/plot"
 	"github.com/radiopath/radiopath/internal/store"
 )
 
@@ -16,18 +15,7 @@ func TestRenderPages(t *testing.T) {
 	s := &Server{Log: slog.Default(), Registration: true, Version: "0.1.0-42-gdeadbee"}
 	s.Handler()
 
-	site := store.Site{ID: 1, Name: "Säntis", Lat: 47.24907, Lon: 9.34317, AntennaHeightM: 25}
-	sites := []store.Site{site}
 	now := time.Now()
-
-	cov := store.CoverageWithSite{Site: site}
-	cov.ID, cov.Name, cov.FreqMHz, cov.RangeM, cov.ResolutionM = 1, "Alpstein", 145.5, 30000, 100
-	cov.ComputedAt, cov.ComputeMs = &now, 1234
-	cov.Bounds = &store.Bounds{North: 48, South: 46, East: 10, West: 8}
-	cov.ShareToken, cov.ShareExpires = "tok", &now
-	cov.ViewOpacity, cov.ViewOverlays, cov.ViewCircles = 40, []int64{1}, true
-	overlays := []overlay{{CoverageWithSite: cov, URL: "/coverages/1/image.png?t=1", Checked: true}}
-	sharedOverlays := []overlay{{CoverageWithSite: cov, URL: "/s/c/tok/image.png?id=1&t=1", Checked: true}}
 
 	cases := []struct {
 		page string
@@ -41,18 +29,6 @@ func TestRenderPages(t *testing.T) {
 			Users:       []store.UserStat{{User: store.User{ID: 1, Name: "hb9hil", CreatedAt: now}, Sessions: 2, LastLogin: &now}},
 			PendingUser: "hb9hil", Maintenance: true}},
 		{"admin_users", adminData{base: base{Admin: true}, Errors: []string{"No such user: nope"}}},
-		{"coverage_form", coverageFormData{Coverage: cov.Coverage, Sites: sites,
-			Antennas: []store.Antenna{{ID: 1, Name: "Sector 90"}}, Form: coverageValues(cov.Coverage)}},
-		{"coverages_list", struct {
-			base
-			Coverages []store.CoverageWithSite
-			Sites     int
-		}{Coverages: []store.CoverageWithSite{cov}, Sites: 1}},
-		{"coverage_detail", coverageDetailData{Coverage: cov, legendData: legendViews(plot.DefaultLegend()), Others: overlays,
-			TxAntenna: "Sector 90", Path: "/coverages/1", ShareURL: "https://example.org/s/c/tok",
-			ViewURL: "/coverages/1/view"}},
-		{"coverage_detail", coverageDetailData{Coverage: cov, legendData: legendViews(plot.DefaultLegend()), Others: sharedOverlays,
-			TxAntenna: "Sector 90", Path: "/s/c/tok", Shared: true}},
 	}
 
 	outDir := os.Getenv("RADIOPATH_TEST_OUT")

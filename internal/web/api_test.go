@@ -12,7 +12,7 @@ import (
 var publicOps = map[string]bool{
 	"get-config": true, "create-session": true, "delete-session": true, "register": true, "verify-email": true,
 	"resend-verification": true, "forgot-password": true, "check-reset-token": true, "reset-password": true,
-	"get-shared-link": true,
+	"get-shared-link": true, "get-shared-coverage": true,
 }
 
 func TestAPISecurity(t *testing.T) {

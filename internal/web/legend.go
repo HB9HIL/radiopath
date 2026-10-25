@@ -1,124 +1,72 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
+
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/radiopath/radiopath/internal/plot"
 	"github.com/radiopath/radiopath/internal/store"
 )
 
-type legendBin struct {
-	Label string
-	CSS   string
+type LegendBin struct {
+	MinDB float64 `json:"min_db" doc:"Lowest link margin of the bin"`
+	Color string  `json:"color" doc:"Colour as #rrggbb"`
 }
 
-type legendRow struct {
-	N   int
-	Min string
-	CSS string
+type LegendRow struct {
+	LegendBin
+	Label string `json:"label" doc:"The margin range as text"`
 }
 
-type legendData struct {
-	Bins       []legendBin
-	Floor      string
-	LegendRows []legendRow
-}
-
-const blankColor = "#9ca3af"
-
-// legendViews turns a legend into template data: the colour bins and a fixed set of MaxBins form rows, unused ones blank.
-func legendViews(l plot.Legend) legendData {
-	d := legendData{Floor: l.Floor(), LegendRows: make([]legendRow, plot.MaxBins)}
+// legendRows returns the bins of l with their labels.
+func legendRows(l plot.Legend) []LegendRow {
+	out := make([]LegendRow, len(l))
 	for i, b := range l {
-		d.Bins = append(d.Bins, legendBin{l.Label(i), b.Hex()})
+		out[i] = LegendRow{LegendBin{b.MinDB, b.Hex()}, l.Label(i)}
 	}
-	for i := range d.LegendRows {
-		d.LegendRows[i] = legendRow{N: i + 1, CSS: blankColor}
-		if i < len(l) {
-			d.LegendRows[i].Min = strconv.FormatFloat(l[i].MinDB, 'f', -1, 64)
-			d.LegendRows[i].CSS = l[i].Hex()
-		}
+	return out
+}
+
+// newLegend validates bins as a legend, sorted from high to low threshold.
+func newLegend(bins []LegendBin) (plot.Legend, error) {
+	mins, colors := make([]float64, len(bins)), make([]string, len(bins))
+	for i, b := range bins {
+		mins[i], colors[i] = b.MinDB, b.Color
 	}
-	return d
+	return plot.NewLegend(mins, colors)
 }
 
 // legendOf returns the coverage's custom legend, or the default when it has none.
 func legendOf(c store.Coverage) plot.Legend { return plot.LegendOr(c.LegendDB, c.LegendColors) }
 
-// encodeLegend serialises the custom legend as "min:color,..." for the form; empty when the default is in use.
-func encodeLegend(c store.Coverage) string {
-	if len(c.LegendDB) == 0 {
-		return ""
-	}
-	parts := make([]string, len(c.LegendDB))
-	for i, m := range c.LegendDB {
-		parts[i] = strconv.FormatFloat(m, 'f', -1, 64) + ":" + c.LegendColors[i]
-	}
-	return strings.Join(parts, ",")
-}
-
-// decodeLegend parses the "min:color,..." form value and validates it, returning normalised thresholds and hex colours; empty input means the default.
-func decodeLegend(v string) (mins []float64, colors []string, err error) {
-	if strings.TrimSpace(v) == "" {
-		return nil, nil, nil
-	}
-	for _, p := range strings.Split(v, ",") {
-		m, c, ok := strings.Cut(p, ":")
-		if !ok {
-			return nil, nil, fmt.Errorf("legend: bad entry %q", p)
+// registerLegend registers PUT /api/coverages/{id}/legend.
+func (s *Server) registerLegend(api huma.API) {
+	o := op("set-coverage-legend", http.MethodPut, "/api/coverages/{id}/legend", scopeCoveragesWrite, "Set the colours of a coverage")
+	o.DefaultStatus = http.StatusNoContent
+	o.Description = fmt.Sprintf("A cell takes the colour of the highest threshold its margin reaches. 1 to %d bins; none resets to the default. Nothing is recomputed.", plot.MaxBins)
+	huma.Register(api, o, func(ctx context.Context, in *struct {
+		IDPath
+		Body struct {
+			Bins []LegendBin `json:"bins"`
 		}
-		f, err := strconv.ParseFloat(strings.TrimSpace(m), 64)
-		if err != nil {
-			return nil, nil, fmt.Errorf("legend: bad threshold %q", m)
-		}
-		mins, colors = append(mins, f), append(colors, strings.TrimSpace(c))
-	}
-	l, err := plot.NewLegend(mins, colors)
-	if err != nil {
-		return nil, nil, err
-	}
-	return l.Mins(), l.Hex(), nil
-}
-
-// setCoverageLegend handles POST /coverages/{id}/legend: stores the posted thresholds and colours, or resets to the default; input errors go back as ?error=.
-func (s *Server) setCoverageLegend(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		s.notFound(w, r)
-		return
-	}
-	back := fmt.Sprintf("/coverages/%d", id)
-	var mins []float64
-	var colors []string
-	if r.FormValue("reset") == "" {
-		f := &form{r: r}
-		for i := 1; i <= plot.MaxBins; i++ {
-			n := strconv.Itoa(i)
-			if f.get("min_"+n) == "" {
-				continue
+	}) (*struct{}, error) {
+		var mins []float64
+		var colors []string
+		if len(in.Body.Bins) > 0 {
+			l, err := newLegend(in.Body.Bins)
+			if err != nil {
+				return nil, huma.Error422UnprocessableEntity("Invalid input", &huma.ErrorDetail{Location: "body.bins", Message: err.Error()})
 			}
-			mins = append(mins, f.num("min_"+n, "Threshold "+n, plot.MinLegendDB, plot.MaxLegendDB))
-			colors = append(colors, f.get("color_"+n))
+			mins, colors = l.Mins(), l.Hex()
 		}
-		if len(f.Errors) > 0 {
-			http.Redirect(w, r, back+"?error="+escapeQuery(strings.Join(f.Errors, "; ")), http.StatusSeeOther)
-			return
+		if err := s.Store.SetCoverageLegend(ctx, userOf(ctx).ID, in.ID, mins, colors); err != nil {
+			return nil, s.storeErr(err)
 		}
-		l, err := plot.NewLegend(mins, colors)
-		if err != nil {
-			http.Redirect(w, r, back+"?error="+escapeQuery(err.Error()), http.StatusSeeOther)
-			return
-		}
-		mins, colors = l.Mins(), l.Hex()
-	}
-	if err := s.Store.SetCoverageLegend(r.Context(), currentUser(r).ID, id, mins, colors); err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, back, http.StatusSeeOther)
+		return nil, nil
+	})
 }
 
 // renderRaster returns the stored PNG, or re-renders it from the margin data with the current legend when one is stored.

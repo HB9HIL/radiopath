@@ -4,16 +4,13 @@ import (
 	"context"
 	"embed"
 	"errors"
-	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"path"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/radiopath/radiopath/internal/link"
 	"github.com/radiopath/radiopath/internal/mail"
@@ -27,8 +24,7 @@ var templateFS embed.FS
 //go:embed static
 var staticFS embed.FS
 
-var pages = []string{"coverages_list", "coverage_form", "coverage_detail",
-	"account", "admin_login", "admin_users", "notfound"}
+var pages = []string{"account", "admin_login", "admin_users", "notfound"}
 
 type base struct {
 	User  string
@@ -59,15 +55,13 @@ type Server struct {
 // Handler parses the templates and builds the full route tree: public, share, optional admin, registration and mail routes, and everything else behind requireAuth.
 func (s *Server) Handler() http.Handler {
 	funcs := template.FuncMap{
-		"divKm":   func(m float64) float64 { return m / 1000 },
 		"asset":   assetURL,
-		"isID":    func(id int64, ref *int64) bool { return ref != nil && *ref == id },
 		"version": func() string { return s.Version },
 	}
 	s.tmpl = make(map[string]*template.Template, len(pages))
 	for _, p := range pages {
 		s.tmpl[p] = template.Must(template.New("layout.html").Funcs(funcs).
-			ParseFS(templateFS, "templates/layout.html", "templates/icons.html", "templates/partials.html",
+			ParseFS(templateFS, "templates/layout.html", "templates/icons.html",
 				"templates/"+p+".html"))
 	}
 
@@ -96,22 +90,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /account/email", s.accountEmail)
 	mux.HandleFunc("POST /account/password", s.accountPassword)
 
-	mux.HandleFunc("GET /coverages", s.listCoverages)
-	mux.HandleFunc("GET /coverages/new", s.newCoverage)
-	mux.HandleFunc("POST /coverages", s.createCoverage)
-	mux.HandleFunc("GET /coverages/{id}", s.showCoverage)
-	mux.HandleFunc("GET /coverages/{id}/edit", s.editCoverage)
 	mux.HandleFunc("GET /coverages/{id}/report.pdf", s.coverageReport)
-	mux.HandleFunc("POST /coverages/{id}", s.updateCoverage)
-	mux.HandleFunc("POST /coverages/{id}/delete", s.deleteCoverage)
-	mux.HandleFunc("POST /coverages/{id}/compute", s.computeCoverage)
 	mux.HandleFunc("GET /coverages/{id}/image.png", s.coverageImage)
 	mux.HandleFunc("GET /coverages/{id}/composite.png", s.coverageComposite)
 	mux.HandleFunc("GET /coverages/{id}/events", s.coverageEvents)
-	mux.HandleFunc("POST /coverages/{id}/view", s.setCoverageView)
-	mux.HandleFunc("POST /coverages/{id}/legend", s.setCoverageLegend)
-	mux.HandleFunc("POST /coverages/{id}/share", s.shareCoverage)
-	mux.HandleFunc("POST /coverages/{id}/share/delete", s.unshareCoverage)
 
 	root := http.NewServeMux()
 	if s.adminEnabled() {
@@ -137,9 +119,9 @@ func (s *Server) Handler() http.Handler {
 		spa.ServeHTTP(w, r)
 	})
 	root.Handle("GET /s/l/{token}", sharedPage)
+	root.Handle("GET /s/c/{token}", sharedPage)
 	share := http.NewServeMux()
 	share.HandleFunc("GET /s/l/{token}/report.pdf", s.sharedLinkReport)
-	share.HandleFunc("GET /s/c/{token}", s.sharedCoverage)
 	share.HandleFunc("GET /s/c/{token}/report.pdf", s.sharedCoverageReport)
 	share.HandleFunc("GET /s/c/{token}/image.png", s.sharedCoverageImage)
 	share.HandleFunc("GET /s/c/{token}/composite.png", s.sharedCoverageComposite)
@@ -302,90 +284,9 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 	}
 }
 
-// escapeQuery URL-encodes v for use in a query string.
-func escapeQuery(v string) string { return url.QueryEscape(v) }
-
 // pathID parses the {id} path value.
 func pathID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(r.PathValue("id"), 10, 64)
 }
 
-// fromID parses the ?from= query value; ok is false unless it is a positive number.
-func fromID(r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
-	return id, err == nil && id > 0
-}
-
 const maxTextLen = 100
-
-type form struct {
-	r      *http.Request
-	Errors []string
-}
-
-// get returns the posted value for name.
-func (f *form) get(name string) string { return f.r.PostFormValue(name) }
-
-// num parses a required number within lo..hi; problems are collected in Errors and 0 or the out-of-range value is returned.
-func (f *form) num(name, label string, lo, hi float64) float64 {
-	v, err := strconv.ParseFloat(f.get(name), 64)
-	if err != nil {
-		f.Errors = append(f.Errors, label+": not a number")
-		return 0
-	}
-	if v < lo || v > hi {
-		f.Errors = append(f.Errors, fmt.Sprintf("%s: must be between %g and %g", label, lo, hi))
-	}
-	return v
-}
-
-// optNum is num for an optional field; empty gives 0.
-func (f *form) optNum(name, label string, lo, hi float64) float64 {
-	if f.get(name) == "" {
-		return 0
-	}
-	return f.num(name, label, lo, hi)
-}
-
-// text returns a required value of at most maxTextLen characters, collecting an error otherwise.
-func (f *form) text(name, label string) string {
-	v := f.get(name)
-	if v == "" {
-		f.Errors = append(f.Errors, label+": required")
-	} else if utf8.RuneCountInString(v) > maxTextLen {
-		f.Errors = append(f.Errors, fmt.Sprintf("%s: at most %d characters", label, maxTextLen))
-	}
-	return v
-}
-
-// optID parses an optional ID; nil when empty or invalid (invalid also adds an error).
-func (f *form) optID(name, label string) *int64 {
-	v := f.get(name)
-	if v == "" {
-		return nil
-	}
-	id, err := strconv.ParseInt(v, 10, 64)
-	if err != nil {
-		f.Errors = append(f.Errors, label+": invalid")
-		return nil
-	}
-	return &id
-}
-
-// id parses a required ID, collecting an error when invalid.
-func (f *form) id(name, label string) int64 {
-	v, err := strconv.ParseInt(f.get(name), 10, 64)
-	if err != nil {
-		f.Errors = append(f.Errors, label+": invalid")
-	}
-	return v
-}
-
-// values returns the posted fields as a flat map, e.g. to refill the form after errors.
-func (f *form) values() map[string]string {
-	out := make(map[string]string, len(f.r.PostForm))
-	for k := range f.r.PostForm {
-		out[k] = f.r.PostFormValue(k)
-	}
-	return out
-}

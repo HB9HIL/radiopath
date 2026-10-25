@@ -86,6 +86,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coverages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's coverages with their sites */
+        get: operations["list-coverages"];
+        put?: never;
+        /** Create a coverage */
+        post: operations["create-coverage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coverages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One coverage with its job state and the rasters that can be shown on top */
+        get: operations["get-coverage"];
+        /**
+         * Replace a coverage
+         * @description Clears the computed result; the legend stays.
+         */
+        put: operations["update-coverage"];
+        post?: never;
+        /** Delete a coverage */
+        delete: operations["delete-coverage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coverages/{id}/compute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue the coverage for computation
+         * @description A job already queued or running stays as it is. GET /coverages/{id}/events streams the job state as server-sent events.
+         */
+        post: operations["compute-coverage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coverages/{id}/legend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the colours of a coverage
+         * @description A cell takes the colour of the highest threshold its margin reaches. 1 to 8 bins; none resets to the default. Nothing is recomputed.
+         */
+        put: operations["set-coverage-legend"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coverages/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Publish a coverage read-only for 30 days, or extend it
+         * @description An existing public URL is kept; its expiry moves to 30 days from now. The shared view shows the overlays of the saved map view.
+         */
+        put: operations["share-coverage"];
+        post?: never;
+        /** Revoke the public URL of a coverage */
+        delete: operations["unshare-coverage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coverages/{id}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save how the map shows the coverage
+         * @description Overlays that are not other computed coverages of the user are dropped. A shared view shows the map the same way.
+         */
+        put: operations["set-coverage-view"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/links": {
         parameters: {
             query?: never;
@@ -259,6 +380,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/share/coverages/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A shared coverage with its released overlays, for anyone with the token */
+        get: operations["get-shared-coverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/share/links/{token}": {
         parameters: {
             query?: never;
@@ -382,6 +520,16 @@ export interface components {
             /** @description File name of an imported pattern, or manual */
             source: string;
         };
+        Bounds: {
+            /** Format: double */
+            east: number;
+            /** Format: double */
+            north: number;
+            /** Format: double */
+            south: number;
+            /** Format: double */
+            west: number;
+        };
         Config: {
             /** @description Logins are disabled while true */
             maintenance: boolean;
@@ -390,6 +538,241 @@ export interface components {
             /** @description Whether new accounts can register */
             registration: boolean;
             version: string;
+        };
+        Coverage: {
+            /** @description Extent of the raster; missing until computed */
+            bounds?: components["schemas"]["Bounds"];
+            /** @description How long the last computation took, human readable */
+            compute_time: string;
+            /** Format: date-time */
+            computed_at: string | null;
+            /** @description False while the default legend is in use */
+            custom_legend: boolean;
+            /** Format: double */
+            frequency_mhz: number;
+            /** Format: int64 */
+            id: number;
+            /** @description The raster as PNG; missing until computed */
+            image_url?: string;
+            job: components["schemas"]["CoverageJob"];
+            /** @description The legend in use, from high to low threshold */
+            legend: components["schemas"]["LegendRow"][];
+            /** @description Label of margins below the lowest threshold */
+            legend_floor: string;
+            name: string;
+            /** @description A remark of the last computation */
+            note: string;
+            /** @enum {string} */
+            polarization: "horizontal" | "vertical";
+            /** Format: double */
+            range_km: number;
+            /**
+             * Format: double
+             * @description Pixel size; range / resolution must not exceed 1000
+             */
+            resolution_m: number;
+            /** Format: double */
+            rx_gain_dbi?: number;
+            /**
+             * Format: double
+             * @description Receiving antenna above ground
+             */
+            rx_height_m: number;
+            /** Format: double */
+            rx_line_loss_db?: number;
+            /** Format: double */
+            rx_sensitivity_dbm: number;
+            /** @description The public read-only link; missing when not shared */
+            share?: components["schemas"]["Share"];
+            site: components["schemas"]["Site"];
+            /**
+             * Format: int64
+             * @description Transmitting site
+             */
+            site_id: number;
+            /**
+             * Format: int64
+             * @description Antenna pattern; omnidirectional without
+             */
+            tx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth, 0 is north
+             */
+            tx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with tx_antenna_id: the antenna's gain is used
+             */
+            tx_gain_dbi?: number;
+            /** Format: double */
+            tx_line_loss_db?: number;
+            /** Format: double */
+            tx_power_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            tx_tilt_deg?: number;
+            view: components["schemas"]["CoverageView"];
+        };
+        CoverageDetail: {
+            /** @description Extent of the raster; missing until computed */
+            bounds?: components["schemas"]["Bounds"];
+            /** @description Merges this raster with ?with=<ids> of overlays into one PNG */
+            composite_url: string;
+            /** @description How long the last computation took, human readable */
+            compute_time: string;
+            /** Format: date-time */
+            computed_at: string | null;
+            /** @description False while the default legend is in use */
+            custom_legend: boolean;
+            /** Format: double */
+            frequency_mhz: number;
+            /** Format: int64 */
+            id: number;
+            /** @description The raster as PNG; missing until computed */
+            image_url?: string;
+            job: components["schemas"]["CoverageJob"];
+            /** @description The legend in use, from high to low threshold */
+            legend: components["schemas"]["LegendRow"][];
+            /** @description Label of margins below the lowest threshold */
+            legend_floor: string;
+            name: string;
+            /** @description A remark of the last computation */
+            note: string;
+            /** @description Rasters that can be shown on top: the other computed coverages, or the released ones of a shared view */
+            overlays: components["schemas"]["Overlay"][];
+            /** @enum {string} */
+            polarization: "horizontal" | "vertical";
+            /** Format: double */
+            range_km: number;
+            /**
+             * Format: double
+             * @description Pixel size; range / resolution must not exceed 1000
+             */
+            resolution_m: number;
+            /** Format: double */
+            rx_gain_dbi?: number;
+            /**
+             * Format: double
+             * @description Receiving antenna above ground
+             */
+            rx_height_m: number;
+            /** Format: double */
+            rx_line_loss_db?: number;
+            /** Format: double */
+            rx_sensitivity_dbm: number;
+            /** @description The public read-only link; missing when not shared */
+            share?: components["schemas"]["Share"];
+            site: components["schemas"]["Site"];
+            /**
+             * Format: int64
+             * @description Transmitting site
+             */
+            site_id: number;
+            /** @description Name of the antenna; empty for omnidirectional */
+            tx_antenna: string;
+            /**
+             * Format: int64
+             * @description Antenna pattern; omnidirectional without
+             */
+            tx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth, 0 is north
+             */
+            tx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with tx_antenna_id: the antenna's gain is used
+             */
+            tx_gain_dbi?: number;
+            /** Format: double */
+            tx_line_loss_db?: number;
+            /** Format: double */
+            tx_power_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            tx_tilt_deg?: number;
+            view: components["schemas"]["CoverageView"];
+        };
+        CoverageInput: {
+            /** Format: double */
+            frequency_mhz: number;
+            name: string;
+            /** @enum {string} */
+            polarization: "horizontal" | "vertical";
+            /** Format: double */
+            range_km: number;
+            /**
+             * Format: double
+             * @description Pixel size; range / resolution must not exceed 1000
+             */
+            resolution_m: number;
+            /** Format: double */
+            rx_gain_dbi?: number;
+            /**
+             * Format: double
+             * @description Receiving antenna above ground
+             */
+            rx_height_m: number;
+            /** Format: double */
+            rx_line_loss_db?: number;
+            /** Format: double */
+            rx_sensitivity_dbm: number;
+            /**
+             * Format: int64
+             * @description Transmitting site
+             */
+            site_id: number;
+            /**
+             * Format: int64
+             * @description Antenna pattern; omnidirectional without
+             */
+            tx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth, 0 is north
+             */
+            tx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with tx_antenna_id: the antenna's gain is used
+             */
+            tx_gain_dbi?: number;
+            /** Format: double */
+            tx_line_loss_db?: number;
+            /** Format: double */
+            tx_power_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            tx_tilt_deg?: number;
+        };
+        CoverageJob: {
+            error: string;
+            /** Format: date-time */
+            queued_at: string | null;
+            /** Format: date-time */
+            started_at: string | null;
+            /** @enum {string} */
+            state: "idle" | "queued" | "running" | "done" | "failed";
+            worker: string;
+        };
+        CoverageView: {
+            /** @description Whether the range circles are drawn */
+            circles: boolean;
+            /**
+             * Format: int64
+             * @description Raster opacity in percent
+             */
+            opacity: number;
+            /** @description Other computed coverages merged into the map */
+            overlays: number[];
         };
         EmailInputBody: {
             email: string;
@@ -434,6 +817,26 @@ export interface components {
              * @example https://example.com/errors/example
              */
             type: string;
+        };
+        LegendBin: {
+            /** @description Colour as #rrggbb */
+            color: string;
+            /**
+             * Format: double
+             * @description Lowest link margin of the bin
+             */
+            min_db: number;
+        };
+        LegendRow: {
+            /** @description Colour as #rrggbb */
+            color: string;
+            /** @description The margin range as text */
+            label: string;
+            /**
+             * Format: double
+             * @description Lowest link margin of the bin
+             */
+            min_db: number;
         };
         Link: {
             /**
@@ -821,6 +1224,75 @@ export interface components {
         NameInputBody: {
             name: string;
         };
+        NewCoverageInput: {
+            /** Format: double */
+            frequency_mhz: number;
+            /** @description Custom legend; the default without. PUT .../legend changes it later */
+            legend?: components["schemas"]["LegendBin"][];
+            name: string;
+            /** @enum {string} */
+            polarization: "horizontal" | "vertical";
+            /** Format: double */
+            range_km: number;
+            /**
+             * Format: double
+             * @description Pixel size; range / resolution must not exceed 1000
+             */
+            resolution_m: number;
+            /** Format: double */
+            rx_gain_dbi?: number;
+            /**
+             * Format: double
+             * @description Receiving antenna above ground
+             */
+            rx_height_m: number;
+            /** Format: double */
+            rx_line_loss_db?: number;
+            /** Format: double */
+            rx_sensitivity_dbm: number;
+            /**
+             * Format: int64
+             * @description Transmitting site
+             */
+            site_id: number;
+            /**
+             * Format: int64
+             * @description Antenna pattern; omnidirectional without
+             */
+            tx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth, 0 is north
+             */
+            tx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with tx_antenna_id: the antenna's gain is used
+             */
+            tx_gain_dbi?: number;
+            /** Format: double */
+            tx_line_loss_db?: number;
+            /** Format: double */
+            tx_power_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            tx_tilt_deg?: number;
+        };
+        Overlay: {
+            bounds: components["schemas"]["Bounds"];
+            checked: boolean;
+            /** Format: double */
+            frequency_mhz: number;
+            /** Format: int64 */
+            id: number;
+            image_url: string;
+            name: string;
+            /** Format: double */
+            range_km: number;
+            site: components["schemas"]["Site"];
+        };
         RegisterInputBody: {
             email: string;
             name: string;
@@ -830,6 +1302,9 @@ export interface components {
             password: string;
             /** @description The token from the mailed link */
             token: string;
+        };
+        "Set-coverage-legendRequest": {
+            bins: components["schemas"]["LegendBin"][];
         };
         Share: {
             /** Format: date-time */
@@ -1160,6 +1635,489 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-coverages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coverage"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCoverageInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coverage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageDetail"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoverageInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coverage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "compute-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-coverage-legend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-coverage-legendRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "share-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Share"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "unshare-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-coverage-view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoverageView"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1885,6 +2843,64 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-shared-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

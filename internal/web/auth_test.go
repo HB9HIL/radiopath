@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 )
@@ -18,18 +17,16 @@ func TestValidateCredentialsLength(t *testing.T) {
 	}
 }
 
-func TestFormTextLength(t *testing.T) {
+func TestCheckTextLength(t *testing.T) {
 	long := strings.Repeat("ä", maxTextLen+1)
 	for _, tc := range []struct {
 		value string
 		errs  int
 	}{{"HB9HIL", 0}, {strings.Repeat("ä", maxTextLen), 0}, {long, 1}, {"", 1}} {
-		r := httptest.NewRequest("POST", "/sites", strings.NewReader(url.Values{"name": {tc.value}}.Encode()))
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		f := &form{r: r}
-		f.text("name", "Name")
-		if len(f.Errors) != tc.errs {
-			t.Errorf("text(%d runes): errors %v, want %d", len([]rune(tc.value)), f.Errors, tc.errs)
+		var c check
+		c.text("name", "Name", tc.value)
+		if len(c.errs) != tc.errs {
+			t.Errorf("text(%d runes): errors %v, want %d", len([]rune(tc.value)), c.errs, tc.errs)
 		}
 	}
 }

@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -60,34 +59,6 @@ func (s *Server) shareLimit(next http.Handler) http.Handler {
 	})
 }
 
-// shareCoverage handles POST /coverages/{id}/share: creates a share token valid for 30 days and redirects back to the coverage.
-func (s *Server) shareCoverage(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		s.notFound(w, r)
-		return
-	}
-	if err := s.Store.ShareCoverage(r.Context(), currentUser(r).ID, id, randomToken(), time.Now().Add(shareTTL)); err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, fmt.Sprintf("/coverages/%d", id), http.StatusSeeOther)
-}
-
-// unshareCoverage handles POST /coverages/{id}/share/delete: removes the share token and redirects back to the coverage.
-func (s *Server) unshareCoverage(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		s.notFound(w, r)
-		return
-	}
-	if err := s.Store.UnshareCoverage(r.Context(), currentUser(r).ID, id); err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, fmt.Sprintf("/coverages/%d", id), http.StatusSeeOther)
-}
-
 // sharedLinkReport serves the PDF report of a shared link.
 func (s *Server) sharedLinkReport(w http.ResponseWriter, r *http.Request) {
 	l, err := s.Store.GetSharedLink(r.Context(), r.PathValue("token"))
@@ -96,28 +67,6 @@ func (s *Server) sharedLinkReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sendLinkReport(w, r, s.linkAnalysis(r.Context(), l), "")
-}
-
-// sharedCoverage renders the public read-only coverage page; it adds only the overlays the owner released for viewing, with token-scoped image URLs.
-func (s *Server) sharedCoverage(w http.ResponseWriter, r *http.Request) {
-	token := r.PathValue("token")
-	c, err := s.Store.GetSharedCoverage(r.Context(), token)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	extra, err := s.Store.CoveragesByID(r.Context(), c.OwnerID, c.ViewOverlays)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	data := s.coverageDetail(r, c, "/s/c/"+token)
-	data.Shared = true
-	for _, o := range extra {
-		data.Others = append(data.Others, overlay{CoverageWithSite: o, Checked: true,
-			URL: fmt.Sprintf("/s/c/%s/image.png?id=%d&t=%d", token, o.ID, o.ComputedAt.Unix())})
-	}
-	s.render(w, http.StatusOK, "coverage_detail", data)
 }
 
 // sharedCoverageReport serves the PDF report of a shared coverage.

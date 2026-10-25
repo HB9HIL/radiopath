@@ -58,6 +58,7 @@ func (s *Server) registerAPI(api huma.API) {
 	s.registerSites(api)
 	s.registerAntennas(api)
 	s.registerLinks(api)
+	s.registerCoverages(api)
 }
 
 // op returns an operation; a non-empty scope requires a logged-in user, an empty one makes it public.
