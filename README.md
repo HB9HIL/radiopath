@@ -500,10 +500,13 @@ itself offers an orchestrator:
   360 and 3600 of them, one sample per resolution step; pixels take the value of
   the nearest radial sample. Nearby small obstacles therefore cast thin radial
   shadows, which is inherent to the method. The raster is north-up
-  equirectangular; its bounds are stored for a later map overlay. Compute runs
-  synchronously in the request: 30 km at 100 m takes about 1 s, 60 km about 5 s
-  on 10 cores; time grows with roughly (range / resolution)^3 and scales with CPU count
-  (GOMAXPROCS, i.e. the container CPU limit in Kubernetes).
+  equirectangular; its stored bounds place it on the map. "Compute" only queues
+  a job in PostgreSQL; a background worker of any replica with
+  `RADIOPATH_WORKERS` > 0 claims it (`FOR UPDATE SKIP LOCKED`, a job running for
+  more than 15 minutes is taken over), and the page follows its state live.
+  30 km at 100 m takes about 1 s, 60 km about 5 s on 10 cores; time grows with
+  roughly (range / resolution)^3 and scales with CPU count (GOMAXPROCS, i.e. the
+  container CPU limit in Kubernetes).
 
 ## License
 
