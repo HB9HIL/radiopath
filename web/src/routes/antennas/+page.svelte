@@ -1,4 +1,7 @@
 <script lang="ts">
+	import AntennaIcon from '@lucide/svelte/icons/antenna';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash from '@lucide/svelte/icons/trash';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { toast } from 'svelte-sonner';
 	import { api, call, parseNum, type Antenna, type ManualAntennaInput } from '$lib/api';
@@ -8,10 +11,13 @@
 	import * as Table from '$lib/components/ui/table';
 	import Field from '$lib/Field.svelte';
 	import { ask } from '$lib/confirm.svelte';
+	import EmptyState from '$lib/EmptyState.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
+	import ListSkeleton from '$lib/ListSkeleton.svelte';
 	import ManualAntennaFields, { type ManualValues } from '$lib/ManualAntennaFields.svelte';
 	import { invalid, notifyError } from '$lib/notify';
 	import PageHead from '$lib/PageHead.svelte';
+	import RowActions from '$lib/RowActions.svelte';
 
 	const queryClient = useQueryClient();
 	const antennas = createQuery(() => ({ queryKey: ['antennas'], queryFn: () => call(api.GET('/api/antennas')) }));
@@ -141,52 +147,54 @@
 <FormErrors error={antennas.error} />
 <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
 	<div>
-		<div class="rounded-lg border bg-card">
-			<Table.Root>
-				<Table.Header>
-					<Table.Row>
-						<Table.Head>Azimuth</Table.Head>
-						<Table.Head>Elevation</Table.Head>
-						<Table.Head>Name</Table.Head>
-						<Table.Head class="text-right">Gain</Table.Head>
-						<Table.Head class="text-right">Front/back</Table.Head>
-						<Table.Head class="text-right">Frequency</Table.Head>
-						<Table.Head></Table.Head>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each antennas.data ?? [] as a (a.id)}
+		{#if antennas.isPending}
+			<ListSkeleton />
+		{:else if antennas.data?.length}
+			<div class="rounded-lg border bg-card">
+				<Table.Root>
+					<Table.Header>
 						<Table.Row>
-							<Table.Cell class="w-28">{@html a.pattern_svg}</Table.Cell>
-							<Table.Cell class="w-28">
-								{#if a.elevation_svg}{@html a.elevation_svg}{:else}<span class="text-muted-foreground" title="mirrors the azimuth cut">&mdash;</span
-									>{/if}
-							</Table.Cell>
-							<Table.Cell>
-								{a.name}{#if a.source}<br /><span class="font-mono text-xs text-muted-foreground">{a.source}</span>{/if}
-							</Table.Cell>
-							<Table.Cell class="text-right font-mono tabular-nums">{a.gain_dbi.toFixed(1)} dBi</Table.Cell>
-							<Table.Cell class="text-right font-mono tabular-nums">{a.front_db.toFixed(1)} dB</Table.Cell>
-							<Table.Cell class="text-right font-mono tabular-nums">
-								{#if a.freq_mhz}{a.freq_mhz.toFixed(0)} MHz{:else}<span class="text-muted-foreground">&mdash;</span>{/if}
-							</Table.Cell>
-							<Table.Cell class="space-x-1 text-right whitespace-nowrap">
-								{#if a.manual}<Button variant="outline" size="sm" onclick={() => open(a)}>Edit</Button>{/if}
-								<Button variant="destructive" size="sm" onclick={() => remove(a)}>Delete</Button>
-							</Table.Cell>
+							<Table.Head>Azimuth</Table.Head>
+							<Table.Head class="hidden sm:table-cell">Elevation</Table.Head>
+							<Table.Head>Name</Table.Head>
+							<Table.Head class="text-right">Gain</Table.Head>
+							<Table.Head class="hidden text-right sm:table-cell">Front/back</Table.Head>
+							<Table.Head class="hidden text-right md:table-cell">Frequency</Table.Head>
+							<Table.Head class="w-12"></Table.Head>
 						</Table.Row>
-					{:else}
-						<Table.Row>
-							<Table.Cell colspan={7} class="py-6 text-center text-muted-foreground"
-								>No antennas yet. Upload an MSI Planet file to get started.</Table.Cell
-							>
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
-		</div>
-		{#if antennas.data?.length}
+					</Table.Header>
+					<Table.Body>
+						{#each antennas.data as a (a.id)}
+							<Table.Row>
+								<Table.Cell class="w-20 sm:w-28">{@html a.pattern_svg}</Table.Cell>
+								<Table.Cell class="hidden w-28 sm:table-cell">
+									{#if a.elevation_svg}{@html a.elevation_svg}{:else}<span class="text-muted-foreground" title="mirrors the azimuth cut">&mdash;</span
+										>{/if}
+								</Table.Cell>
+								<Table.Cell class="break-words whitespace-normal">
+									{a.name}{#if a.source}<br /><span class="font-mono text-xs text-muted-foreground">{a.source}</span>{/if}
+								</Table.Cell>
+								<Table.Cell class="text-right font-mono tabular-nums">{a.gain_dbi.toFixed(1)} dBi</Table.Cell>
+								<Table.Cell class="hidden text-right font-mono tabular-nums sm:table-cell">{a.front_db.toFixed(1)} dB</Table.Cell>
+								<Table.Cell class="hidden text-right font-mono tabular-nums md:table-cell">
+									{#if a.freq_mhz}{a.freq_mhz.toFixed(0)} MHz{:else}<span class="text-muted-foreground">&mdash;</span>{/if}
+								</Table.Cell>
+								<Table.Cell class="text-right">
+									<RowActions
+										actions={[
+											...(a.manual ? [{ label: 'Edit', icon: Pencil, run: () => open(a) }] : []),
+											{ label: 'Delete', icon: Trash, run: () => remove(a), destructive: true }
+										]}
+									/>
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</div>
 			<p class="table-note mt-2 text-xs text-muted-foreground">{antennas.data.length} antenna{antennas.data.length === 1 ? '' : 's'}</p>
+		{:else if antennas.data}
+			<EmptyState icon={AntennaIcon}>No antennas yet. Upload an MSI Planet file to get started.</EmptyState>
 		{/if}
 	</div>
 	<div class="grid gap-5">
