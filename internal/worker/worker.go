@@ -103,10 +103,11 @@ func (w *Worker) run(ctx context.Context, c store.CoverageWithSite) {
 		return
 	}
 	if err != nil {
+		reason := link.Reason(err)
 		if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
-			err = fmt.Errorf("computation exceeded %s", jobTimeout)
+			reason = fmt.Sprintf("The calculation took longer than %s.", jobTimeout)
 		}
-		if dbErr := w.Store.FailCoverageJob(dbCtx, c.ID, err.Error()); dbErr != nil {
+		if dbErr := w.Store.FailCoverageJob(dbCtx, c.ID, reason); dbErr != nil {
 			log.Error("mark failed", "err", dbErr)
 		}
 		metrics.CoverageJobs.WithLabelValues("failed").Inc()

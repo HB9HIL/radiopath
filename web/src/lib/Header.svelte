@@ -59,7 +59,9 @@
 					<DropdownMenu.Item onSelect={() => theme.toggle()}>
 						{#if theme.dark}<Sun />Light theme{:else}<Moon />Dark theme{/if}
 					</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={() => window.open('/api/docs', '_blank', 'noopener')}><BookOpen />API docs</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={() => window.open('/api/openapi.json', '_blank', 'noopener')}
+						><BookOpen />OpenAPI description</DropdownMenu.Item
+					>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Item onSelect={logout}><LogOut />Log out</DropdownMenu.Item>
 				</DropdownMenu.Content>

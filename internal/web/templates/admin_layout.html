@@ -92,6 +92,9 @@ function cpPassword() {
     if (/[a-z]/.test(out) && /[A-Z]/.test(out) && /[2-9]/.test(out) && /[!#%*+\-?]/.test(out)) { return out; }
   }
 }
+document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+  form.addEventListener('submit', function (e) { if (!confirm(form.dataset.confirm)) { e.preventDefault(); } });
+});
 document.querySelectorAll('button[data-generate]').forEach(function (btn) {
   var input = document.getElementById(btn.dataset.generate);
   if (!input.value) { input.value = cpPassword(); }

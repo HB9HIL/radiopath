@@ -21,7 +21,8 @@ The Helm chart, its values and the ingress/certificate setup are documented in
 itself offers an orchestrator:
 
 - `GET /healthz` liveness, `GET /readyz` readiness (database ping, DEM source
-  reachable, Redis ping when configured).
+  reachable, Redis ping when configured). A failing check answers 503 `not ready`;
+  which part failed and why is only in the log (`not ready`, `part`, `err`).
 - `GET /metrics` on port 9090, a separate listener that is in no Service and no
   Ingress, see [Metrics and logging](metrics-and-logging.md).
 - Memory: about `RADIOPATH_DEM_CACHE_TILES` x 26 MB (x 39 MB with a canopy

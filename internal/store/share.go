@@ -43,6 +43,17 @@ func (s *Store) GetSharedCoverage(ctx context.Context, token string) (CoverageWi
 	return c, mapErr(err)
 }
 
+// ShareExists reports whether an unexpired share token exists for a link (kind "l") or a coverage ("c").
+func (s *Store) ShareExists(ctx context.Context, kind, token string) (bool, error) {
+	table := map[string]string{"l": "links", "c": "coverages"}[kind]
+	if table == "" {
+		return false, nil
+	}
+	var ok bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM `+table+` WHERE share_token = $1 AND share_expires_at > now())`, token).Scan(&ok)
+	return ok, err
+}
+
 // share runs a share UPDATE; ErrNotFound when no row matches.
 func (s *Store) share(ctx context.Context, sql string, owner, id int64, token string, expires time.Time) error {
 	tag, err := s.pool.Exec(ctx, sql, owner, id, token, expires)

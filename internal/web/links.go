@@ -287,7 +287,7 @@ func (s *Server) registerLinks(api huma.API) {
 	o = op("get-shared-link", http.MethodGet, "/api/share/links/{token}", "", "A shared link with its path analysis, for anyone with the token")
 	o.Errors = []int{http.StatusNotFound, http.StatusTooManyRequests}
 	huma.Register(api, o, func(ctx context.Context, in *TokenPath) (*LinkDetailOutput, error) {
-		if err := s.shareHit(ctx, in.Token); err != nil {
+		if err := s.shareHit(ctx, "l", in.Token); err != nil {
 			return nil, err
 		}
 		l, err := s.Store.GetSharedLink(ctx, in.Token)
@@ -365,7 +365,7 @@ func (s *Server) linkAnalysis(ctx context.Context, l store.LinkWithSites) linkDa
 	})
 	if err != nil {
 		s.Log.Warn("link analysis failed", "link", l.ID, "err", err)
-		data.Error = err.Error()
+		data.Error = link.Reason(err)
 	} else {
 		data.Result = &res
 	}

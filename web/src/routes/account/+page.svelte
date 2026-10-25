@@ -15,6 +15,7 @@
 	// The page needs a login: call() sends a guest there on 401.
 	const me = createQuery(() => ({ queryKey: ['me', 'account'], queryFn: () => call(api.GET('/api/me')) }));
 	let email = $state('');
+	let emailPassword = $state('');
 	let current = $state('');
 	let password = $state('');
 	let password2 = $state('');
@@ -29,12 +30,13 @@
 		if (me.data && email === '') email = me.data.email;
 	});
 
-	/** Asks for the new address to be confirmed by mail. */
+	/** Asks for the new address to be confirmed by mail; the password guards against a stolen session. */
 	async function changeEmail(e: SubmitEvent) {
 		e.preventDefault();
 		try {
-			const r = await api.PUT('/api/me/email', { body: { email } });
+			const r = await api.PUT('/api/me/email', { body: { email, password: emailPassword } });
 			await call(Promise.resolve(r));
+			emailPassword = '';
 			// 204: the address did not change
 			if (r.response.status === 202) toast.success('Confirmation link sent to the new address. It takes effect once you open it.');
 			else toast.info('That is the address on file already.');
@@ -65,11 +67,15 @@
 		<form class="grid gap-3 rounded-lg border bg-card p-4" onsubmit={changeEmail}>
 			<Field label="User name"><Input value={me.data.name} disabled /></Field>
 			<Field label="Email"><Input name="email" type="email" autocomplete="email" required bind:value={email} /></Field>
+			<Field label="Password"
+				><Input name="email_password" type="password" autocomplete="current-password" required bind:value={emailPassword} /></Field
+			>
 			<div><Button type="submit">Change address</Button></div>
 		</form>
 		<p class="mt-2 text-xs text-muted-foreground">
 			{#if me.data.email}
-				A new address takes effect once you open the confirmation link we send there. Password reset mails go to the confirmed address.
+				A new address takes effect once you open the confirmation link we send there; the old one gets a notice. Password reset mails go to the
+				confirmed address.
 			{:else}
 				No address on file: without one there is no password reset.
 			{/if}

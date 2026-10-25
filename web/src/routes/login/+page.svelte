@@ -12,7 +12,7 @@
 	import { notifyError } from '$lib/notify';
 
 	const notices: Record<string, string> = {
-		registered: 'Almost done: open the confirmation link we sent to your address, then log in.',
+		registered: 'Almost done: check your mail for the next step.',
 		verified: 'Address confirmed.',
 		reset: 'Password changed. Log in with the new one.'
 	};

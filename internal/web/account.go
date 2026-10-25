@@ -19,6 +19,7 @@ const (
 	verifyTTL   = 24 * time.Hour
 	resetTTL    = time.Hour
 	maxEmailLen = 254
+	mailTimeout = 30 * time.Second
 
 	mailWindow    = time.Hour
 	forgotIPMax   = 5
@@ -44,6 +45,34 @@ somebody asked to reset the password of your Radiopath account. Open
 to choose a new one; the link is valid for one hour. If that was not you,
 ignore this mail, your password stays as it is.
 `
+	changedMail = `Hi %s,
+
+the address of your Radiopath account was changed to another one. If that
+was not you, reset your password at
+
+%s
+
+and contact the operator.
+`
+	knownMail = `Hi %s,
+
+somebody tried to register a new Radiopath account with this address, which
+already belongs to your account. If that was you and you forgot the
+password, reset it at
+
+%s
+
+Otherwise ignore this mail.
+`
+	nameTakenMail = `Hello,
+
+somebody tried to register a Radiopath account named %q with this address,
+but that user name is taken. Choose another one at
+
+%s
+
+If that was not you, ignore this mail.
+`
 )
 
 // validEmail returns s trimmed if it is a plain address (no display name, max 254 bytes), otherwise an empty string.
@@ -56,17 +85,31 @@ func validEmail(s string) string {
 	return s
 }
 
-// sendLink stores a one-time token for purpose and mails the matching confirm or reset link to email.
+// sendLink stores a one-time token for purpose and mails the matching confirm or reset link to email. The token sits
+// in the fragment, which browsers never send, so it stays out of access logs and proxies.
 func (s *Server) sendLink(ctx context.Context, u store.User, email, purpose string) error {
 	token, id := newSessionToken()
-	ttl, path, subject, text := resetTTL, "/reset/", "Reset your Radiopath password", resetMail
+	ttl, path, subject, text := resetTTL, "/reset#", "Reset your Radiopath password", resetMail
 	if purpose == store.TokenVerify {
-		ttl, path, subject, text = verifyTTL, "/verify/", "Confirm your Radiopath address", verifyMail
+		ttl, path, subject, text = verifyTTL, "/verify#", "Confirm your Radiopath address", verifyMail
 	}
 	if err := s.Store.CreateEmailToken(ctx, id, u.ID, email, purpose, time.Now().Add(ttl)); err != nil {
 		return err
 	}
-	return s.Mail.Send(ctx, email, subject, fmt.Sprintf(text, u.Name, s.BaseURL+path+token))
+	s.mailLater(email, subject, fmt.Sprintf(text, u.Name, s.BaseURL+path+token))
+	return nil
+}
+
+// mailLater sends in the background, so the response time of the public mail flows does not tell whether an address
+// or name exists; failures are logged.
+func (s *Server) mailLater(to, subject, text string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), mailTimeout)
+		defer cancel()
+		if err := s.Mail.Send(ctx, to, subject, text); err != nil {
+			s.Log.Error("mail", "subject", subject, "err", err)
+		}
+	}()
 }
 
 // sendVerification mails a confirmation link, limited per user; sent is false when the limit was hit.
@@ -89,6 +132,13 @@ type PasswordInput struct {
 	}
 }
 
+type EmailChangeInput struct {
+	Body struct {
+		Email    string `json:"email"`
+		Password string `json:"password" doc:"The password in use, so a stolen session cannot take over the account"`
+	}
+}
+
 type EmailOutput struct {
 	Status int
 }
@@ -98,9 +148,12 @@ func (s *Server) registerAccount(api huma.API) {
 	o := op("set-my-email", http.MethodPut, "/api/me/email", scopeSession, "Change the address of the account")
 	o.DefaultStatus = http.StatusAccepted
 	o.Errors = append(o.Errors, http.StatusTooManyRequests)
-	o.Description = "202: a confirmation link went to the new address, which takes effect once it is opened. 204: the address is the same."
-	huma.Register(api, o, func(ctx context.Context, in *EmailInput) (*EmailOutput, error) {
+	o.Description = "202: a confirmation link went to the new address, which takes effect once it is opened; the old address gets a notice then. 204: the address is the same."
+	huma.Register(api, o, func(ctx context.Context, in *EmailChangeInput) (*EmailOutput, error) {
 		u := userOf(ctx)
+		if err := s.checkPassword(ctx, u, in.Body.Password, "body.password"); err != nil {
+			return nil, err
+		}
 		email := validEmail(in.Body.Email)
 		if email == "" {
 			return nil, huma.Error422UnprocessableEntity("Invalid input",
@@ -125,12 +178,8 @@ func (s *Server) registerAccount(api huma.API) {
 	o.Description = "Logs out every session of the account and sets a fresh cookie for this one."
 	huma.Register(api, o, func(ctx context.Context, in *PasswordInput) (*SessionOutput, error) {
 		u := userOf(ctx)
-		_, hash, err := s.Store.Credentials(ctx, u.Name)
-		if err != nil {
-			return nil, s.storeErr(err)
-		}
-		if bcrypt.CompareHashAndPassword([]byte(hash), []byte(in.Body.Current)) != nil {
-			return nil, huma.Error422UnprocessableEntity("Invalid input", &huma.ErrorDetail{Location: "body.current", Message: "Current password is wrong"})
+		if err := s.checkPassword(ctx, u, in.Body.Current, "body.current"); err != nil {
+			return nil, err
 		}
 		var errs []error
 		for _, m := range validatePassword(in.Body.Password) {
@@ -149,6 +198,18 @@ func (s *Server) registerAccount(api huma.API) {
 		s.Log.Info("password changed", "user", u.Name)
 		return &SessionOutput{SetCookie: c}, nil
 	})
+}
+
+// checkPassword returns a 422 at field unless password is the one of u.
+func (s *Server) checkPassword(ctx context.Context, u store.User, password, field string) error {
+	_, hash, err := s.Store.Credentials(ctx, u.Name)
+	if err != nil {
+		return s.storeErr(err)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		return huma.Error422UnprocessableEntity("Invalid input", &huma.ErrorDetail{Location: field, Message: "Current password is wrong"})
+	}
+	return nil
 }
 
 // setPassword stores the new hash for u and revokes all of its sessions.
@@ -217,6 +278,9 @@ func (s *Server) registerMailFlows(api huma.API) {
 		if err != nil {
 			return nil, s.storeErr(err)
 		}
+		if u.Email != "" && !strings.EqualFold(u.Email, email) {
+			s.mailLater(u.Email, "Your Radiopath address was changed", fmt.Sprintf(changedMail, u.Name, s.BaseURL+"/forgot"))
+		}
 		s.Log.Info("email confirmed", "user", u.Name)
 		return nil, nil
 	})
@@ -233,7 +297,14 @@ func (s *Server) registerMailFlows(api huma.API) {
 			return nil, s.storeErr(err)
 		}
 		if err == nil && !u.Verified {
-			if _, err := s.sendVerification(ctx, u, u.Email); err != nil {
+			email, err := s.Store.PendingEmail(ctx, u.ID)
+			if errors.Is(err, store.ErrNotFound) {
+				return nil, nil
+			}
+			if err != nil {
+				return nil, s.storeErr(err)
+			}
+			if _, err := s.sendVerification(ctx, u, email); err != nil {
 				return nil, s.storeErr(err)
 			}
 			s.Log.Info("confirmation resent", "user", u.Name)
@@ -283,16 +354,15 @@ func (s *Server) registerMailFlows(api huma.API) {
 		return nil, nil
 	})
 
-	o = op("check-reset-token", http.MethodGet, "/api/password/reset/{token}", "", "Check that a reset token is still valid")
+	o = op("check-reset-token", http.MethodPost, "/api/password/reset/check", "", "Check that a reset token is still valid")
 	o.DefaultStatus = http.StatusNoContent
 	o.Errors = []int{http.StatusNotFound, http.StatusGone}
-	huma.Register(api, o, func(ctx context.Context, in *struct {
-		Token string `path:"token"`
-	}) (*struct{}, error) {
+	o.Description = "The token goes in the body, never in a URL, so it stays out of access logs."
+	huma.Register(api, o, func(ctx context.Context, in *TokenInput) (*struct{}, error) {
 		if s.Mail == nil {
 			return nil, noMail
 		}
-		ok, err := s.Store.EmailTokenValid(ctx, sessionID(in.Token), store.TokenReset)
+		ok, err := s.Store.EmailTokenValid(ctx, sessionID(in.Body.Token), store.TokenReset)
 		if err != nil {
 			return nil, s.storeErr(err)
 		}

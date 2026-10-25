@@ -8,24 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- JSON API under `/api`, described by OpenAPI at `/api/openapi.json` with docs at `/api/docs`; the web app is built on it, other programs can use it too (by @HB9HIL)
+- JSON API under `/api`, described by OpenAPI at `/api/openapi.json` for logged-in users; the web app is built on it, other programs can use it too (by @HB9HIL)
+- The app and the admin panel send a Content-Security-Policy: scripts only from the app itself and its own inline scripts by hash, no plugins, no framing, no connections elsewhere (by @HB9HIL)
 
 ### Changed
 - The web interface is a SvelteKit app embedded in the binary instead of server-rendered pages: no reload after saving, a coverage page picks up its finished job by itself. Page, share and mail link URLs stay the same; only the admin panel is still rendered by the server (by @HB9HIL)
 - Rasters, reports and job events answer 401 without a session instead of redirecting to the login (by @HB9HIL)
-- The header carries the account, the theme, the API docs and logout in one menu; on phones the sections sit in a tab bar at the bottom (by @HB9HIL)
+- The header carries the account, the theme, the API description and logout in one menu; on phones the sections sit in a tab bar at the bottom (by @HB9HIL)
 - The end-to-end tests run on a phone as well: tab bar, row menus and no page wider than the screen (by @HB9HIL)
 - Link and coverage pages open with their key figures as tiles; on phones the map fits the screen and the less used actions sit in a menu (by @HB9HIL)
 - Lists keep their row actions in one menu, show fewer columns on phones, an empty state with a way forward and a placeholder while loading (by @HB9HIL)
 - Messages and errors after an action appear as toasts, deleting asks in a dialog of the app instead of the browser's own (by @HB9HIL)
 - `make dev` serves the app on http://localhost:5173, from the Vite dev server in Docker that proxies to the Go server (by @HB9HIL)
+- Changing the address of an account needs its password, and the old address gets a notice once the new one is confirmed (by @HB9HIL)
+- Confirmation and reset links carry their token in the URL fragment (`/verify#…`, `/reset#…`), which never reaches a server log; links mailed before the update no longer work, request a new one (by @HB9HIL)
+- Failed logins count per user name and IP (5) and per user name from all IPs (100) instead of per name alone, so a stranger can no longer lock an account out with five wrong passwords (by @HB9HIL)
+- One user can hold at most five job event streams at a time (by @HB9HIL)
 
 ### Fixed
+- Registration no longer tells whether a user name or an address is taken: it answers the same in every case, and only the mail to that address says what happened. An unconfirmed registration no longer blocks its address for others (by @HB9HIL)
+- Mails of the public account pages go out in the background, so response times no longer tell whether an address exists (by @HB9HIL)
+- The login no longer follows a `next` parameter that the browser reads as another site, such as `/<tab>/evil.example` (by @HB9HIL)
+- Failed link and coverage calculations show a fixed reason instead of the internal error, which could name tile files, hosts or the storage bucket, also on shared pages; stored job errors are replaced by the migration (by @HB9HIL)
+- `/readyz` no longer names the failing part and its error, the log does (by @HB9HIL)
+- The version is no longer shown in the footer, `/api/config` or the API description (by @HB9HIL)
+- Share URLs with a made-up token answer 404 without leaving a rate limit row behind (by @HB9HIL)
 - The cookies that logout and admin logout clear are marked `Secure` (behind HTTPS) and `SameSite` like the ones they replace (by @HB9HIL)
 - A tab opened before a deploy loads the new version instead of failing on script chunks the new build no longer has (by @HB9HIL)
 - Legend colours are parsed byte by byte, so a colour can never be truncated on its way into a raster or report (by @HB9HIL)
 
 ### Removed
+- The API docs page `/api/docs`, which loaded its scripts from a CDN; `/api/openapi.json` and `/api/schemas/` need a login (by @HB9HIL)
+- The `worker` field of coverage jobs and their event stream, which named the pod (by @HB9HIL)
+- `GET /api/password/reset/{token}`, replaced by `POST /api/password/reset/check` with the token in the body (by @HB9HIL)
 - The Tailwind build of the server-rendered pages (`make css`, `internal/web/ui`, the CI job `lint-css`) (by @HB9HIL)
 
 ### Chore

@@ -29,15 +29,35 @@ test('rejects a wrong current password', async ({ page }) => {
   await expect(toast(page, 'Current password is wrong')).toBeVisible()
 })
 
+const changeEmail = async (page, email, pw) => {
+  await page.goto('/account')
+  await expect(page.locator('[name=email]')).not.toHaveValue('')
+  await page.locator('[name=email]').fill(email)
+  await page.locator('[name=email_password]').fill(pw)
+  await page.locator('[name=email_password]').press('Enter')
+}
+
 test('adds an address by confirmation link', async ({ page }) => {
   await login(page, user, newPassword)
   await page.goto('/account')
   await expect(page.getByText('No address on file').first()).toBeVisible()
   await page.locator('[name=email]').fill('account@example.test')
-  await page.locator('[name=email]').press('Enter')
+  await page.locator('[name=email_password]').fill(newPassword)
+  await page.locator('[name=email_password]').press('Enter')
   await expect(toast(page, 'Confirmation link sent to the new address')).toBeVisible()
-  await page.goto(await mailLink(page, 'account@example.test'))
+  await page.goto(await mailLink(page, 'account@example.test', 'Confirm'))
   await expect.poll(() => pathname(page)).toBe('/account')
   await expect(toast(page, 'Address confirmed.')).toBeVisible()
   await expect(page.locator('[name=email]')).toHaveValue('account@example.test')
+})
+
+test('changes the address only with the password and tells the old one', async ({ page }) => {
+  await login(page, user, newPassword)
+  await changeEmail(page, 'account2@example.test', 'not-the-password')
+  await expect(toast(page, 'Current password is wrong')).toBeVisible()
+  await changeEmail(page, 'account2@example.test', newPassword)
+  await expect(toast(page, 'Confirmation link sent to the new address')).toBeVisible()
+  await page.goto(await mailLink(page, 'account2@example.test', 'Confirm'))
+  await expect(toast(page, 'Address confirmed.')).toBeVisible()
+  expect(await mailLink(page, 'account@example.test', 'address was changed')).toMatch(/\/forgot$/)
 })

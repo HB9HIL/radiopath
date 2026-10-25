@@ -30,7 +30,7 @@ Next to the `go_*` and `process_*` runtime metrics:
 - `radiopath_http_requests_total{route,method,code}` and
   `radiopath_http_request_duration_seconds{route}`. `route` is always a
   registered ServeMux pattern (`/coverages/{id}`), never the path — that one
-  carries ids, tile coordinates and the tokens of `/reset/{token}`. An unmatched
+  carries ids, tile coordinates and share tokens. An unmatched
   request is `other`. `/coverages/{id}/events` is an SSE stream of minutes and
   always lands in the `+Inf` bucket.
 - `radiopath_coverage_jobs_total{result}` (done, failed, requeued) and

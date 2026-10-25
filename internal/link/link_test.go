@@ -2,11 +2,13 @@ package link
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
-	"strings"
 	"testing"
 
 	"github.com/radiopath/radiopath/internal/antenna"
+	"github.com/radiopath/radiopath/internal/dem"
 	"github.com/radiopath/radiopath/internal/geo"
 	"github.com/radiopath/radiopath/internal/itm"
 )
@@ -86,16 +88,28 @@ func TestKnifeEdge(t *testing.T) {
 func TestErrors(t *testing.T) {
 	c := Calculator{DEM: fakeDEM(func(_, _ float64) float64 { return 0 })}
 	far := Site{Name: "far", Pos: geo.Point{Lat: 47, Lon: 40}, AntennaHeightM: 10}
-	if _, err := c.Analyze(context.Background(), Input{A: siteA, B: far, Radio: radio}); err == nil || !strings.Contains(err.Error(), "exceeds") {
+	if _, err := c.Analyze(context.Background(), Input{A: siteA, B: far, Radio: radio}); !errors.Is(err, ErrTooFar) {
 		t.Errorf("2000 km limit: %v", err)
 	}
-	if _, err := c.Analyze(context.Background(), Input{A: siteA, B: siteA, Radio: radio}); err == nil {
-		t.Error("same position accepted")
+	if _, err := c.Analyze(context.Background(), Input{A: siteA, B: siteA, Radio: radio}); !errors.Is(err, ErrSamePosition) {
+		t.Errorf("same position: %v", err)
 	}
 	bad := radio
 	bad.FreqMHz = 10
 	if _, err := c.Analyze(context.Background(), Input{A: siteA, B: siteB, Radio: bad}); err != itm.ErrFrequency {
 		t.Errorf("10 MHz: %v", err)
+	}
+}
+
+func TestReason(t *testing.T) {
+	for err, want := range map[error]string{
+		fmt.Errorf("link: canopy 30 m from home (47.1, 9.1): %w", fmt.Errorf("%w: N47E009.hgt", dem.ErrNoTile)): "No terrain data for this area.",
+		fmt.Errorf("%w: 2500 km", ErrTooFar):                                                      "The sites are more than 2000 km apart, beyond the limit of the model.",
+		errors.New("dem: s3: GET bucket/N47E009.hgt: status 403: AccessDenied at minio.internal"): "Calculation failed.",
+	} {
+		if got := Reason(err); got != want {
+			t.Errorf("Reason(%v) = %q, want %q", err, got, want)
+		}
 	}
 }
 

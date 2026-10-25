@@ -52,7 +52,6 @@ type CoverageJob struct {
 	State     string     `json:"state" enum:"idle,queued,running,done,failed"`
 	QueuedAt  *time.Time `json:"queued_at" nullable:"true"`
 	StartedAt *time.Time `json:"started_at" nullable:"true"`
-	Worker    string     `json:"worker"`
 	Error     string     `json:"error"`
 }
 
@@ -116,7 +115,7 @@ func (s *Server) toCoverage(c store.CoverageWithSite, base string) Coverage {
 		RxLineLossDB: c.RxLineLossDB, RxSensitivityDBm: c.RxSensitivityDBm, RangeKm: c.RangeM / 1000, ResolutionM: c.ResolutionM,
 	},
 		Legend: legendRows(l), LegendFloor: l.Floor(), CustomLegend: len(c.LegendDB) > 0,
-		Job:        CoverageJob{State: c.Job.State, QueuedAt: c.Job.QueuedAt, StartedAt: c.Job.StartedAt, Worker: c.Job.Worker, Error: c.Job.Error},
+		Job:        CoverageJob{State: c.Job.State, QueuedAt: c.Job.QueuedAt, StartedAt: c.Job.StartedAt, Error: c.Job.Error},
 		ComputedAt: c.ComputedAt, Note: c.Note,
 		View: CoverageView{Opacity: int(c.ViewOpacity), Overlays: c.ViewOverlays, Circles: c.ViewCircles},
 	}
@@ -324,7 +323,7 @@ func (s *Server) registerCoverages(api huma.API) {
 	o = op("get-shared-coverage", http.MethodGet, "/api/share/coverages/{token}", "", "A shared coverage with its released overlays, for anyone with the token")
 	o.Errors = []int{http.StatusNotFound, http.StatusTooManyRequests}
 	huma.Register(api, o, func(ctx context.Context, in *TokenPath) (*CoverageDetailOutput, error) {
-		if err := s.shareHit(ctx, in.Token); err != nil {
+		if err := s.shareHit(ctx, "c", in.Token); err != nil {
 			return nil, err
 		}
 		c, err := s.Store.GetSharedCoverage(ctx, in.Token)

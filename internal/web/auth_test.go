@@ -1,12 +1,32 @@
 package web
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
+
+// An unknown name must cost a full bcrypt compare like a known one, or the response time tells which names exist.
+func TestDummyHash(t *testing.T) {
+	real, _ := HashPassword("some-password")
+	took := func(hash string) time.Duration {
+		start := time.Now()
+		err := bcrypt.CompareHashAndPassword([]byte(hash), []byte("wrong-password"))
+		if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			t.Fatalf("compare %s: %v", hash, err)
+		}
+		return time.Since(start)
+	}
+	if d, r := took(dummyHash), took(real); d < r/2 {
+		t.Errorf("dummy compare took %s, a real one %s", d, r)
+	}
+}
 
 func TestValidateCredentialsLength(t *testing.T) {
 	if errs := ValidateCredentials("hb9hil", strings.Repeat("x", 72)); len(errs) != 0 {
@@ -71,7 +91,7 @@ func TestMailRoutesNeedMailer(t *testing.T) {
 		{"POST", "/api/verify", `{"token":"abc"}`},
 		{"POST", "/api/verify/resend", `{"name":"hb9hil"}`},
 		{"POST", "/api/password/forgot", `{"email":"op@example.org"}`},
-		{"GET", "/api/password/reset/abc", ""},
+		{"POST", "/api/password/reset/check", `{"token":"abc"}`},
 		{"POST", "/api/password/reset", `{"token":"abc","password":"0123456789"}`},
 		{"POST", "/api/register", `{"name":"hb9hil","email":"op@example.org","password":"0123456789"}`},
 	} {

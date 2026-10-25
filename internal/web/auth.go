@@ -30,7 +30,8 @@ const (
 
 	loginWindow    = 15 * time.Minute
 	loginIPMax     = 20
-	loginUserMax   = 5
+	loginPairMax   = 5   // per name and IP: one attacker cannot lock the owner out from elsewhere
+	loginUserMax   = 100 // per name from all IPs: caps guessing spread over many addresses
 	registerWindow = time.Hour
 	registerIPMax  = 5
 )
@@ -54,6 +55,9 @@ func (s *Server) clientIP(r *http.Request) string {
 func tooMany(window time.Duration) string {
 	return fmt.Sprintf("Too many attempts. Try again in %d minutes.", int(window.Minutes()))
 }
+
+// dummyHash is compared for unknown names, so they cost the same bcrypt work as known ones (TestDummyHash).
+const dummyHash = "$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinval"
 
 type ctxKey int
 
@@ -175,8 +179,9 @@ func (s *Server) registerAuth(api huma.API) {
 
 	o = op("register", http.MethodPost, "/api/register", "", "Create an account and mail the confirmation link")
 	o.DefaultStatus = http.StatusNoContent
-	o.Errors = []int{http.StatusNotFound, http.StatusConflict, http.StatusTooManyRequests, http.StatusServiceUnavailable}
-	o.Description = "404 when registration is closed."
+	o.Errors = []int{http.StatusNotFound, http.StatusTooManyRequests, http.StatusServiceUnavailable}
+	o.Description = "404 when registration is closed. Otherwise 204 whether or not the name or the address is taken, so " +
+		"neither can be probed; the address gets a mail that says which case it was."
 	huma.Register(api, o, s.register)
 
 	huma.Register(api, op("get-me", http.MethodGet, "/api/me", scopeAccountRead, "The logged-in user"),
@@ -186,7 +191,7 @@ func (s *Server) registerAuth(api huma.API) {
 		})
 }
 
-// login checks the credentials, counts failures against the IP and user rate limits and starts a session on success; unverified accounts get a 403.
+// login checks the credentials, counts failures against the IP, name-and-IP and name rate limits and starts a session on success; unverified accounts get a 403.
 func (s *Server) login(ctx context.Context, in *LoginInput) (*SessionOutput, error) {
 	name := strings.ToLower(strings.TrimSpace(in.Body.Name))
 	ip := reqInfo(ctx).ip
@@ -194,11 +199,11 @@ func (s *Server) login(ctx context.Context, in *LoginInput) (*SessionOutput, err
 		return nil, err
 	}
 
-	ipKey, nameKey := "login:ip:"+ip, "login:user:"+name
-	for _, l := range []struct {
+	limits := []struct {
 		key string
 		max int
-	}{{ipKey, loginIPMax}, {nameKey, loginUserMax}} {
+	}{{"login:ip:" + ip, loginIPMax}, {"login:pair:" + name + ":" + ip, loginPairMax}, {"login:user:" + name, loginUserMax}}
+	for _, l := range limits {
 		n, err := s.Store.RateCount(ctx, l.key, loginWindow)
 		if err != nil {
 			return nil, s.storeErr(err)
@@ -212,15 +217,15 @@ func (s *Server) login(ctx context.Context, in *LoginInput) (*SessionOutput, err
 
 	u, hash, err := s.Store.Credentials(ctx, name)
 	if errors.Is(err, store.ErrNotFound) {
-		hash, err = "$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinval", nil
+		hash, err = dummyHash, nil
 	}
 	if err != nil {
 		return nil, s.storeErr(err)
 	}
 	// unknown users burn a real bcrypt compare so names cannot be probed
 	if u.ID == 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(in.Body.Password)) != nil {
-		for _, k := range []string{ipKey, nameKey} {
-			if _, err := s.Store.RateHit(ctx, k, loginWindow); err != nil {
+		for _, l := range limits {
+			if _, err := s.Store.RateHit(ctx, l.key, loginWindow); err != nil {
 				s.Log.Warn("rate limit", "err", err)
 			}
 		}
@@ -285,7 +290,9 @@ type RegisterInput struct {
 	}
 }
 
-// register handles POST /api/register: per-IP rate limit, validation, account creation and the confirmation mail.
+// register handles POST /api/register: per-IP rate limit, validation, then exactly one mail to the address: the
+// confirmation link, a note that the address already has an account, or that the name is taken. The answer is the
+// same in all three cases.
 func (s *Server) register(ctx context.Context, in *RegisterInput) (*struct{}, error) {
 	if !s.Registration || s.Mail == nil {
 		return nil, huma.Error404NotFound("Registration is closed")
@@ -321,9 +328,18 @@ func (s *Server) register(ctx context.Context, in *RegisterInput) (*struct{}, er
 	if err != nil {
 		return nil, s.storeErr(err)
 	}
+	if u, err := s.Store.UserByEmail(ctx, email); err == nil {
+		s.mailLater(email, "Your Radiopath account", fmt.Sprintf(knownMail, u.Name, s.BaseURL+"/forgot"))
+		s.Log.Info("registration for a taken address", "remote", ip)
+		return nil, nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil, s.storeErr(err)
+	}
 	id, err := s.Store.Register(ctx, name, email, hash)
 	if errors.Is(err, store.ErrExists) {
-		return nil, huma.Error409Conflict("User name or address is already taken")
+		s.mailLater(email, "Choose another Radiopath user name", fmt.Sprintf(nameTakenMail, name, s.BaseURL+"/register"))
+		s.Log.Info("registration for a taken name", "remote", ip)
+		return nil, nil
 	}
 	if err != nil {
 		return nil, s.storeErr(err)

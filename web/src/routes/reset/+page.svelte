@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { ApiError, api, call } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
@@ -9,7 +8,8 @@
 	import FormErrors from '$lib/FormErrors.svelte';
 	import { invalid, notifyError } from '$lib/notify';
 
-	const token = page.params.token ?? '';
+	// The mail link carries the token in the fragment, which never reaches a server or its logs.
+	const token = location.hash.slice(1);
 	let password = $state('');
 	let password2 = $state('');
 	// An expired or used link: the page has nothing left to offer but a new one.
@@ -23,7 +23,9 @@
 	}
 
 	onMount(() => {
-		call(api.GET('/api/password/reset/{token}', { params: { path: { token } } })).catch(check);
+		// drop the token from the address bar and history; SvelteKit's replaceState throws before its router has started
+		history.replaceState(history.state, '', location.pathname);
+		call(api.POST('/api/password/reset/check', { body: { token } })).catch(check);
 	});
 
 	/** Sets the new password, which logs out every session of the account. */

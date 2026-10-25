@@ -12,14 +12,24 @@ can register themselves unless `RADIOPATH_REGISTRATION=false`; names are 3 to
 32 characters (letters, digits, `._-`) and unique ignoring case, passwords need
 10 characters (at most 72). Registering asks for an email address and mails a
 confirmation link (24 hours); the account cannot log in before it is opened
-(and is deleted after 7 days if it never is),
-and logging in with the right password meanwhile offers a button for a fresh
-link (3 per account per hour). Under
-the user name in the header, `/account` changes the address (again by
-confirmation link, the old one stays until then) and the password (the old
-one is required, every other session is logged out). `/forgot` mails a reset
-link (one hour) and answers the same whether or not the address is known.
-Links are random tokens stored hashed, like sessions, and used once.
+(and is deleted after 7 days if it never is). Until then the address waits
+outside the unique index, so registering somebody else's address blocks
+nothing. Registration answers the same whether the name or the address is
+taken: the mail to that address says what happened (a confirmation link, "you
+already have an account", or "the name is taken"), so only its owner learns it.
+Logging in with the right password before confirming offers a button for a
+fresh link (3 per account per hour). Under
+the user name in the header, `/account` changes the address (the password is
+required, so a stolen session cannot redirect the reset mails; again by
+confirmation link, the old address stays until then and gets a notice
+afterwards) and the password (the old one is required, every other session is
+logged out). `/forgot` mails a reset link (one hour) and answers the same
+whether or not the address is known. Mails go out in the background, so the
+response time does not tell either, and an unknown name costs the same bcrypt
+work at login as a known one. Links are random tokens stored hashed, like
+sessions, and used once; they sit in the URL fragment (`/reset#<token>`), which
+browsers never send, so they reach no access log, and the page removes them
+from the address bar.
 Sites, links, coverages and antenna patterns belong to the user
 who created them; nobody else sees them except through a share link the owner
 switched on, and deleting a user deletes their data with them. One account can hold 200 sites and 50 coverages and have 2 coverage
@@ -39,16 +49,37 @@ most once per session per hour, not once per request. The cookie is `HttpOnly`, 
 sure the ingress sets that header. CSRF protection uses Go's
 `http.CrossOriginProtection` (Sec-Fetch-Site / Origin checks on every POST),
 so requests carry no tokens. Every response carries `X-Content-Type-Options:
-nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`; TLS and
+nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`. The app
+and the admin panel add a `Content-Security-Policy` that allows scripts only
+from the app itself plus their fixed inline scripts by hash (computed at start
+from the build and the rendered admin page), no plugins, no framing and no
+connections elsewhere; the admin panel allows no script files at all. TLS and
 HSTS are the ingress's job.
 
 Rate limits are counted in PostgreSQL, so they hold across replicas: 20 failed
-logins per IP and 5 per user name in 15 minutes, 5 registration attempts per IP
+logins per IP, 5 per user name from one IP and 100 per user name from all IPs
+in 15 minutes (so a stranger cannot lock the owner out with a few wrong
+passwords), 5 registration attempts per IP
 per hour, 5 reset requests per IP and 3 per address per hour, 3 confirmation
 mails per account per hour, 120 requests per shared object per hour; further
-requests get HTTP 429. Behind an ingress set
+requests get HTTP 429. A made-up share token answers 404 without being
+counted, so guessing leaves no rows behind. Behind an ingress set
 `RADIOPATH_TRUST_PROXY=true` so the client IP is read from `X-Forwarded-For`
 (last hop); without it every request would count against the ingress address.
+
+## What stays internal
+
+Public answers say as little about the installation as possible:
+
+- No version anywhere outside the log and the metrics: not in the footer, not
+  in `/api/config`, not in the API description.
+- The API description (`/api/openapi.json`, `/api/schemas/`) needs a login, and
+  there is no docs page, which would load its scripts from a CDN.
+- A failed link or coverage calculation shows a fixed reason; the error itself
+  can name tile files, hosts or the storage bucket and goes to the log only.
+  Coverage jobs do not report which worker (pod) computes them.
+- `/readyz` answers `not ready` without saying which part failed.
+- One user can hold at most five job event streams per process.
 
 ## Share links
 

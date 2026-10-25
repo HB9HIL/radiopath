@@ -97,7 +97,7 @@
 
 		<h2 class="mt-6 mb-2 text-xs font-medium text-muted-foreground">Result</h2>
 		{#if !r}
-			<Alert.Root variant="destructive">Calculation failed: {d.error}</Alert.Root>
+			<Alert.Root variant="destructive">{d.error}</Alert.Root>
 		{:else}
 			<table class="kv">
 				<tbody>

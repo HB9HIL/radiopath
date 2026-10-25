@@ -22,11 +22,8 @@
 	const queryClient = useQueryClient();
 	const c = createQuery(() => ({ queryKey: ['coverages', id], queryFn: () => call(api.GET('/api/coverages/{id}', path)) }));
 	// The job as the event stream reports it, ahead of the next load of the coverage.
-	let live: { state: string; since?: string; worker?: string } | null = $state(null);
-	const job = $derived(
-		live ??
-			(c.data ? { state: c.data.job.state, since: c.data.job.started_at ?? c.data.job.queued_at ?? undefined, worker: c.data.job.worker } : null)
-	);
+	let live: { state: string; since?: string } | null = $state(null);
+	const job = $derived(live ?? (c.data ? { state: c.data.job.state, since: c.data.job.started_at ?? c.data.job.queued_at ?? undefined } : null));
 	const busy = $derived(job?.state === 'queued' || job?.state === 'running');
 
 	/** Reloads the coverage and the list. */
@@ -42,7 +39,7 @@
 			if (j.state !== 'queued' && j.state !== 'running') {
 				es.close();
 				if (j.state === 'done') toast.success('Coverage computed');
-				else if (j.state === 'failed') toast.error(`Calculation failed: ${j.error}`);
+				else if (j.state === 'failed') toast.error(j.error);
 				reload().then(() => (live = null));
 			}
 		};
@@ -104,9 +101,9 @@
 			{#if job.state === 'queued' && job.since}
 				<Alert.Root class="mb-4">Queued since {clock(job.since)}, waiting for a worker.</Alert.Root>
 			{:else if job.state === 'running' && job.since}
-				<Alert.Root class="mb-4">Computing since {clock(job.since)} on {job.worker}.</Alert.Root>
+				<Alert.Root class="mb-4">Computing since {clock(job.since)}.</Alert.Root>
 			{:else if d.job.state === 'failed'}
-				<Alert.Root variant="destructive" class="mb-4">Calculation failed: {d.job.error}</Alert.Root>
+				<Alert.Root variant="destructive" class="mb-4">{d.job.error}</Alert.Root>
 			{/if}
 		{/snippet}
 		{#snippet legend()}<LegendEditor {d} onchange={reload} />{/snippet}

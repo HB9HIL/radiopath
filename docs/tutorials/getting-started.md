@@ -28,8 +28,8 @@ stack is up. Leave this terminal running; Ctrl-C later stops everything.
 4. On **Coverage**, create a coverage around Säntis with a range of 10 km and a resolution of 100 m, then press
    **Compute**. The badge goes from *queued* to *running* to *done*, and the raster appears on the map.
 
-Everything you just did went through the JSON API. Open http://localhost:5173/api/docs to see the same operations
-documented.
+Everything you just did went through the JSON API. While you are logged in, http://localhost:5173/api/openapi.json
+describes the same operations; load it into any OpenAPI viewer.
 
 ## 3. Make a change
 

@@ -92,12 +92,19 @@ func (s *Store) CreateUser(ctx context.Context, name, passwordHash string) (int6
 	return id, mapErr(err)
 }
 
-// Register inserts an unverified user with an email; ErrExists when the name or email is taken.
+// Register inserts an unverified user; the address waits in pending_email until it is confirmed. ErrExists when the name is taken.
 func (s *Store) Register(ctx context.Context, name, email, passwordHash string) (int64, error) {
 	var id int64
-	err := s.pool.QueryRow(ctx, `INSERT INTO users (name, email, password_hash) VALUES (lower($1), $2, $3) RETURNING id`,
+	err := s.pool.QueryRow(ctx, `INSERT INTO users (name, pending_email, password_hash) VALUES (lower($1), $2, $3) RETURNING id`,
 		name, email, passwordHash).Scan(&id)
 	return id, mapErr(err)
+}
+
+// PendingEmail returns the address an unverified user registered with; ErrNotFound when there is none.
+func (s *Store) PendingEmail(ctx context.Context, id int64) (string, error) {
+	var email string
+	err := s.pool.QueryRow(ctx, `SELECT pending_email FROM users WHERE id = $1 AND verified_at IS NULL AND pending_email IS NOT NULL`, id).Scan(&email)
+	return email, mapErr(err)
 }
 
 // UpsertUser creates a verified user or replaces the password of an existing one.
@@ -135,9 +142,9 @@ func (s *Store) UserByEmail(ctx context.Context, email string) (User, error) {
 	return u, mapErr(err)
 }
 
-// SetEmail sets the email and marks the user verified; ErrNotFound when unknown, ErrExists when the email is taken.
+// SetEmail sets the confirmed email and marks the user verified; ErrNotFound when unknown, ErrExists when the email is taken.
 func (s *Store) SetEmail(ctx context.Context, id int64, email string) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE users SET email = $2, verified_at = now(), updated_at = now() WHERE id = $1`, id, email)
+	tag, err := s.pool.Exec(ctx, `UPDATE users SET email = $2, pending_email = NULL, verified_at = now(), updated_at = now() WHERE id = $1`, id, email)
 	if err != nil {
 		return mapErr(err)
 	}

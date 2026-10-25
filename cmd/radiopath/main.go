@@ -184,7 +184,7 @@ func newLogger(c config) *slog.Logger {
 // main prints the OpenAPI description or runs a user subcommand when given arguments, otherwise the server until SIGINT/SIGTERM.
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "openapi" {
-		spec, err := (&web.Server{Version: version}).OpenAPI()
+		spec, err := (&web.Server{}).OpenAPI()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -265,7 +265,6 @@ func run(ctx context.Context, cfg config, log *slog.Logger) error {
 		Registration: cfg.registration,
 		TrustProxy:   cfg.trustProxy,
 		AdminToken:   cfg.adminToken,
-		Version:      version,
 		BaseURL:      cfg.baseURL,
 		UI:           webui.FS(),
 		Log:          log,

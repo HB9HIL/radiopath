@@ -54,7 +54,7 @@ make api
 ```
 
 This writes `web/openapi.json` and `web/src/lib/api.gen.ts`. Commit both with the change; CI fails when they are
-out of date. The new operation is now on http://localhost:5173/api/docs.
+out of date. Logged in, http://localhost:5173/api/openapi.json now lists the new operation.
 
 ## 4. Use it in the web app
 

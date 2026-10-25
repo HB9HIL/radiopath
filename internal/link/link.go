@@ -2,6 +2,7 @@ package link
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -20,6 +21,27 @@ const (
 	maxDistM     = 2000e3
 	speedOfLight = 299792458.0
 )
+
+var (
+	ErrSamePosition = errors.New("link: sites are at the same position")
+	ErrTooFar       = fmt.Errorf("link: distance exceeds the model limit of %.0f km", maxDistM/1000)
+)
+
+// Reason returns a fixed text for an analysis error that is safe to show anyone, shares included; the error itself can
+// name files, coordinates or the storage backend and belongs in the log only.
+func Reason(err error) string {
+	switch {
+	case errors.Is(err, ErrSamePosition):
+		return "Both sites are at the same position."
+	case errors.Is(err, ErrTooFar):
+		return fmt.Sprintf("The sites are more than %.0f km apart, beyond the limit of the model.", maxDistM/1000)
+	case errors.Is(err, dem.ErrNoTile):
+		return "No terrain data for this area."
+	case errors.Is(err, dem.ErrVoid):
+		return "The terrain data has a gap in this area."
+	}
+	return "Calculation failed."
+}
 
 const (
 	Climate = itm.ContinentalTemperate
@@ -140,10 +162,10 @@ func (c Calculator) analyze(ctx context.Context, in Input) (Result, error) {
 	r.DistanceM = geo.Distance(in.A.Pos, in.B.Pos)
 	r.BearingDeg = geo.InitialBearing(in.A.Pos, in.B.Pos)
 	if r.DistanceM <= 0 {
-		return r, fmt.Errorf("link: sites are at the same position")
+		return r, ErrSamePosition
 	}
 	if r.DistanceM > maxDistM {
-		return r, fmt.Errorf("link: distance %.0f km exceeds model limit of %.0f km", r.DistanceM/1000, maxDistM/1000)
+		return r, fmt.Errorf("%w: %.0f km", ErrTooFar, r.DistanceM/1000)
 	}
 
 	if _, err := c.DEM.Elevation(in.A.Pos.Lat, in.A.Pos.Lon); err != nil {

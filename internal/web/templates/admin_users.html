@@ -23,9 +23,9 @@
 <form method="post" action="/admin/maintenance"><input type="hidden" name="on" value="false"><button class="btn btn-primary">Allow logins again</button></form>
 {{else}}
 <span class="badge badge-done">open</span>
-<form method="post" action="/admin/maintenance" onsubmit="return confirm('Block all logins? Sessions that are already open keep working.')"><input type="hidden" name="on" value="true"><button class="btn">Maintenance mode</button></form>
+<form method="post" action="/admin/maintenance" data-confirm="Block all logins? Sessions that are already open keep working."><input type="hidden" name="on" value="true"><button class="btn">Maintenance mode</button></form>
 {{end}}
-<form class="end" method="post" action="/admin/sessions/delete" onsubmit="return confirm('Log out every user?')"><button class="btn btn-danger">Revoke all sessions</button></form>
+<form class="end" method="post" action="/admin/sessions/delete" data-confirm="Log out every user?"><button class="btn btn-danger">Revoke all sessions</button></form>
 </div>
 <div class="split">
 <div>
@@ -43,7 +43,7 @@
 <td class="row-actions">
 <a class="btn" href="/admin/users/{{.Name}}/password">Set password</a>
 <form method="post" action="/admin/users/{{.Name}}/sessions"><button class="btn" {{if not .Sessions}}disabled{{end}}>Revoke</button></form>
-<form method="post" action="/admin/users/{{.Name}}/delete" onsubmit="return confirm('Delete user {{.Name}}? Their sessions, sites, links, coverages and antennas go with them.')"><button class="btn btn-danger">Delete</button></form>
+<form method="post" action="/admin/users/{{.Name}}/delete" data-confirm="Delete user {{.Name}}? Their sessions, sites, links, coverages and antennas go with them."><button class="btn btn-danger">Delete</button></form>
 </td>
 </tr>
 {{else}}

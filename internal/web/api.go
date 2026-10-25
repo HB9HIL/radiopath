@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -41,9 +42,11 @@ func (s *Server) OpenAPI() ([]byte, error) {
 
 // apiConfig returns the huma configuration with the API paths and the session scheme.
 func (s *Server) apiConfig() huma.Config {
-	c := huma.DefaultConfig("Radiopath API", s.Version)
+	// no version: it would tell an attacker which known bugs apply
+	c := huma.DefaultConfig("Radiopath API", "")
 	c.OpenAPIPath = "/api/openapi"
-	c.DocsPath = "/api/docs"
+	// no docs page: it loads its scripts from a CDN; the description itself is for logged-in users only (privateSpec)
+	c.DocsPath = ""
 	c.SchemasPath = "/api/schemas"
 	c.CreateHooks = nil
 	c.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
@@ -97,6 +100,18 @@ type requestInfo struct {
 }
 
 const reqKey ctxKey = 1
+
+// privateSpec answers 401 for the API description (/api/openapi.*, /api/schemas/...) unless a user is logged in.
+func privateSpec(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if (strings.HasPrefix(p, "/api/openapi") || strings.HasPrefix(p, "/api/schemas")) && userOf(r.Context()).ID == 0 {
+			http.Error(w, "not logged in", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 // authenticate puts the request info and the session user, if any, into the context; it never rejects, gate does.
 func (s *Server) authenticate(next http.Handler) http.Handler {
@@ -198,22 +213,21 @@ func (s *Server) storeErr(err error) error {
 }
 
 type Config struct {
-	Version       string `json:"version"`
-	Registration  bool   `json:"registration" doc:"Whether new accounts can register"`
-	PasswordReset bool   `json:"password_reset" doc:"Whether forgotten passwords can be reset by mail"`
-	Maintenance   bool   `json:"maintenance" doc:"Logins are disabled while true"`
+	Registration  bool `json:"registration" doc:"Whether new accounts can register"`
+	PasswordReset bool `json:"password_reset" doc:"Whether forgotten passwords can be reset by mail"`
+	Maintenance   bool `json:"maintenance" doc:"Logins are disabled while true"`
 }
 
 type ConfigOutput struct{ Body Config }
 
 // registerConfig registers GET /api/config, what the login pages need to know before anyone is logged in.
 func (s *Server) registerConfig(api huma.API) {
-	huma.Register(api, op("get-config", http.MethodGet, "/api/config", "", "Server version and enabled features"),
+	huma.Register(api, op("get-config", http.MethodGet, "/api/config", "", "The features the login pages offer"),
 		func(ctx context.Context, _ *struct{}) (*ConfigOutput, error) {
 			on, err := s.Store.Maintenance(ctx)
 			if err != nil {
 				return nil, s.storeErr(err)
 			}
-			return &ConfigOutput{Body: Config{Version: s.Version, Registration: s.Registration, PasswordReset: s.Mail != nil, Maintenance: on}}, nil
+			return &ConfigOutput{Body: Config{Registration: s.Registration, PasswordReset: s.Mail != nil, Maintenance: on}}, nil
 		})
 }

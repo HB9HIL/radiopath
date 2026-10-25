@@ -47,7 +47,7 @@ export async function call<T>(p: Promise<Result<T>>): Promise<T> {
 	throw new ApiError(response.status, problem.detail || response.statusText, errors);
 }
 
-/** The config query: version and the features the login pages offer. */
+/** The config query: the features the login pages offer. */
 export const configQuery = () => ({ queryKey: ['config'], queryFn: () => call(api.GET('/api/config')), staleTime: Infinity });
 
 /** The logged-in user, or null for guests. */
@@ -61,11 +61,16 @@ export const meQuery = () => ({
 	}
 });
 
-/** Returns next only if it is a local path, otherwise /, so the login cannot redirect off site. */
+/** Returns next only if it is a path on this site, otherwise /, so the login cannot redirect off site. */
 export function safeNext(next: string | null): string {
-	// "//host" and "/\host" (browsers turn \ into /) would leave the site
-	if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return '/';
-	return next;
+	// Resolve the way the browser will: it drops tabs and newlines and reads \ as /, so "/\t/host" means "//host".
+	if (!next?.startsWith('/')) return '/';
+	try {
+		const u = new URL(next, location.origin);
+		return u.origin === location.origin ? u.pathname + u.search + u.hash : '/';
+	} catch {
+		return '/';
+	}
 }
 
 /** Parses a decimal number typed by the user; NaN for anything else, so the caller can say which field is wrong. */
