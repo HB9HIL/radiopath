@@ -3,6 +3,7 @@ package plot
 import (
 	"bytes"
 	"encoding/xml"
+	"image/color"
 	"image/png"
 	"io"
 	"math"
@@ -233,5 +234,22 @@ func TestCoveragePNGLegend(t *testing.T) {
 	}
 	if _, _, _, ca := rgb(3); ca != 0 {
 		t.Error("NaN should be transparent")
+	}
+}
+
+func TestParseHex(t *testing.T) {
+	for in, want := range map[string]color.RGBA{
+		"#ff0000": {255, 0, 0, 255},
+		"#3CB43C": {60, 180, 60, 255},
+		"#000000": {0, 0, 0, 255},
+	} {
+		if got, err := ParseHex(in); err != nil || got != want {
+			t.Errorf("ParseHex(%q) = %v, %v; want %v", in, got, err, want)
+		}
+	}
+	for _, in := range []string{"", "ff0000", "#ff000", "#ff00000", "#ff00zz", "#+f0000", "#-10000"} {
+		if _, err := ParseHex(in); err == nil {
+			t.Errorf("ParseHex(%q) accepted", in)
+		}
 	}
 }

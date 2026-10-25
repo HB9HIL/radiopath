@@ -217,11 +217,15 @@ func ParseHex(s string) (color.RGBA, error) {
 	if len(s) != 7 || s[0] != '#' {
 		return c, fmt.Errorf("legend: colour %q is not #rrggbb", s)
 	}
-	v, err := strconv.ParseUint(s[1:], 16, 32)
-	if err != nil {
-		return c, fmt.Errorf("legend: colour %q is not #rrggbb", s)
+	var rgb [3]uint8
+	for i := range rgb {
+		v, err := strconv.ParseUint(s[1+2*i:3+2*i], 16, 8)
+		if err != nil {
+			return c, fmt.Errorf("legend: colour %q is not #rrggbb", s)
+		}
+		rgb[i] = uint8(v)
 	}
-	return color.RGBA{uint8(v >> 16), uint8(v >> 8), uint8(v), 255}, nil
+	return color.RGBA{rgb[0], rgb[1], rgb[2], 255}, nil
 }
 
 // CoveragePNG renders the coverage as a paletted PNG with a cross marking the transmitter at the centre.

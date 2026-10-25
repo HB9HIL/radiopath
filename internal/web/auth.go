@@ -169,7 +169,8 @@ func (s *Server) registerAuth(api huma.API) {
 				s.Log.Warn("logout", "err", err)
 			}
 		}
-		return &SessionOutput{SetCookie: http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1}}, nil
+		return &SessionOutput{SetCookie: http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true,
+			Secure: reqInfo(ctx).secure, SameSite: http.SameSiteLaxMode, MaxAge: -1}}, nil
 	})
 
 	o = op("register", http.MethodPost, "/api/register", "", "Create an account and mail the confirmation link")
