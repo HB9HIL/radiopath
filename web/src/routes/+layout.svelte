@@ -3,8 +3,7 @@
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import ConfirmHost from '$lib/ConfirmHost.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
-	import Footer from '$lib/Footer.svelte';
-	import Header from '$lib/Header.svelte';
+	import Shell from '$lib/Shell.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -19,11 +18,7 @@
 <Toaster position="top-center" richColors closeButton />
 <ConfirmHost />
 <QueryClientProvider client={queryClient}>
-	<div class="flex min-h-screen flex-col">
-		<Header />
-		<main class="mx-auto w-full max-w-[1400px] px-5 py-5">
-			{@render children()}
-		</main>
-		<Footer />
-	</div>
+	<Shell>
+		{@render children()}
+	</Shell>
 </QueryClientProvider>

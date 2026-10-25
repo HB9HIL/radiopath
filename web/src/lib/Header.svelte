@@ -1,17 +1,23 @@
 <script lang="ts">
+	import BookOpen from '@lucide/svelte/icons/book-open';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import CircleUserRound from '@lucide/svelte/icons/circle-user-round';
+	import LogOut from '@lucide/svelte/icons/log-out';
+	import Moon from '@lucide/svelte/icons/moon';
+	import RadioTower from '@lucide/svelte/icons/radio-tower';
+	import Sun from '@lucide/svelte/icons/sun';
+	import User from '@lucide/svelte/icons/user';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { api, meQuery } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { sections } from '$lib/nav';
+	import { theme } from '$lib/theme.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 
 	const me = createQuery(meQuery);
-	const nav = [
-		['/sites', 'Sites'],
-		['/links', 'Links'],
-		['/coverages', 'Coverage'],
-		['/antennas', 'Antennas']
-	];
 
 	/** Ends the session and goes to the login page. */
 	async function logout() {
@@ -20,26 +26,46 @@
 	}
 </script>
 
-<header class="top-0 z-30 flex min-h-12 flex-wrap items-center gap-x-6 border-b bg-card px-5 sm:sticky">
-	<a class="text-[13px] font-semibold text-foreground" href="/">Radiopath</a>
+<header class="sticky top-0 z-30 flex h-12 items-center gap-6 border-b bg-card px-4 sm:px-5">
+	<a class="flex items-center gap-2 text-sm font-semibold text-foreground" href="/">
+		<RadioTower class="size-5 text-primary" />Radiopath
+	</a>
 	{#if me.data}
-		<nav class="order-last flex basis-full items-center gap-5 sm:order-none sm:basis-auto">
-			{#each nav as [href, label] (href)}
+		<nav class="hidden items-center gap-5 sm:flex" aria-label="Sections">
+			{#each sections as s (s.href)}
 				<a
 					class={[
-						'-mb-px flex h-10 items-center border-b-2 text-[13px] hover:text-foreground sm:h-12',
-						page.url.pathname.startsWith(href) ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'
+						'-mb-px flex h-12 items-center border-b-2 text-[13px] hover:text-foreground',
+						page.url.pathname.startsWith(s.href) ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'
 					]}
-					{href}>{label}</a
+					href={s.href}>{s.label}</a
 				>
 			{/each}
 		</nav>
 	{/if}
-	<div class="ml-auto flex items-center gap-3">
-		<ThemeToggle />
+	<div class="ml-auto flex items-center gap-2">
 		{#if me.data}
-			<Button variant="outline" size="sm" href="/account" title="Account">{me.data.name}</Button>
-			<Button variant="outline" size="sm" onclick={logout}>Logout</Button>
+			{@const name = me.data.name}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button variant="ghost" size="sm" {...props}
+							><CircleUserRound /><span class="max-w-32 truncate">{name}</span><ChevronDown class="text-muted-foreground" /></Button
+						>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end" class="w-48">
+					<DropdownMenu.Item onSelect={() => goto('/account')}><User />Account</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={() => theme.toggle()}>
+						{#if theme.dark}<Sun />Light theme{:else}<Moon />Dark theme{/if}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={() => window.open('/api/docs', '_blank', 'noopener')}><BookOpen />API docs</DropdownMenu.Item>
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item onSelect={logout}><LogOut />Log out</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{:else}
+			<ThemeToggle />
 		{/if}
 	</div>
 </header>
