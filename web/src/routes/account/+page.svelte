@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
-	import { ApiError, api, call } from '$lib/api';
+	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import { api, call } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
-	import Notice from '$lib/Notice.svelte';
+	import { invalid, notifyError } from '$lib/notify';
 	import PageHead from '$lib/PageHead.svelte';
 
 	const queryClient = useQueryClient();
@@ -16,8 +18,11 @@
 	let current = $state('');
 	let password = $state('');
 	let password2 = $state('');
-	let error: unknown = $state(null);
-	let notice = $state(page.url.searchParams.get('msg') === 'verified' ? 'Address confirmed.' : '');
+
+	// The confirmation link of a new address leads here.
+	onMount(() => {
+		if (page.url.searchParams.get('msg') === 'verified') toast.success('Address confirmed.');
+	});
 
 	// The field shows the confirmed address until the user types another one.
 	$effect(() => {
@@ -27,39 +32,35 @@
 	/** Asks for the new address to be confirmed by mail. */
 	async function changeEmail(e: SubmitEvent) {
 		e.preventDefault();
-		error = null;
-		notice = '';
 		try {
 			const r = await api.PUT('/api/me/email', { body: { email } });
 			await call(Promise.resolve(r));
 			// 204: the address did not change
-			if (r.response.status === 202) notice = 'Confirmation link sent to the new address. It takes effect once you open it.';
+			if (r.response.status === 202) toast.success('Confirmation link sent to the new address. It takes effect once you open it.');
+			else toast.info('That is the address on file already.');
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 	}
 
 	/** Changes the password; every other session ends, this one gets a fresh cookie. */
 	async function changePassword(e: SubmitEvent) {
 		e.preventDefault();
-		error = password === password2 ? null : new ApiError(422, 'Invalid input', ['Passwords do not match']);
-		notice = '';
-		if (error) return;
+		if (password !== password2) return notifyError(invalid('Passwords do not match'));
 		try {
 			await call(api.PUT('/api/me/password', { body: { current, password } }));
 			current = password = password2 = '';
-			notice = 'Password changed. Other devices have been logged out.';
+			toast.success('Password changed. Other devices have been logged out.');
 			await queryClient.invalidateQueries({ queryKey: ['me'] });
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 	}
 </script>
 
 <div class="mx-auto mt-10 w-full max-w-[26rem]">
 	<PageHead title="Account" />
-	{#if notice}<Notice>{notice}</Notice>{/if}
-	<FormErrors error={error ?? me.error} />
+	<FormErrors error={me.error} />
 	{#if me.data}
 		<form class="grid gap-3 rounded-lg border bg-card p-4" onsubmit={changeEmail}>
 			<Field label="User name"><Input value={me.data.name} disabled /></Field>

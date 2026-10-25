@@ -5,27 +5,25 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
-	import FormErrors from '$lib/FormErrors.svelte';
+	import { invalid, notifyError } from '$lib/notify';
 
 	const config = createQuery(configQuery);
 	let name = $state('');
 	let email = $state('');
 	let password = $state('');
 	let password2 = $state('');
-	let error: unknown = $state(null);
 	let busy = $state(false);
 
 	/** Creates the account; the confirmation mail is on its way when the login page shows. */
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
-		error = password === password2 ? null : new Error('Passwords do not match');
-		if (error) return;
+		if (password !== password2) return notifyError(invalid('Passwords do not match'));
 		busy = true;
 		try {
 			await call(api.POST('/api/register', { body: { name, email, password } }));
 			await goto('/login?msg=registered');
 		} catch (err) {
-			error = err;
+			notifyError(err);
 			busy = false;
 		}
 	}
@@ -38,7 +36,6 @@
 	{#if config.data && !config.data.registration}
 		<p>Registration is closed. <a class="text-primary" href="/login">Back to login</a></p>
 	{:else}
-		<FormErrors {error} />
 		<form class="grid gap-4 rounded-lg border bg-card p-5" onsubmit={submit}>
 			<Field label="User name">
 				<!-- svelte-ignore a11y_autofocus -->

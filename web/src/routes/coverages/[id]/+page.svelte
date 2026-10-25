@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { toast } from 'svelte-sonner';
 	import { api, call, type CoverageView } from '$lib/api';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -9,6 +10,7 @@
 	import FormErrors from '$lib/FormErrors.svelte';
 	import JobBadge from '$lib/JobBadge.svelte';
 	import LegendEditor from '$lib/LegendEditor.svelte';
+	import { notifyError } from '$lib/notify';
 	import ShareDialog from '$lib/ShareDialog.svelte';
 
 	const id = Number(page.params.id);
@@ -17,7 +19,6 @@
 	const c = createQuery(() => ({ queryKey: ['coverages', id], queryFn: () => call(api.GET('/api/coverages/{id}', path)) }));
 	// The job as the event stream reports it, ahead of the next load of the coverage.
 	let live: { state: string; since?: string; worker?: string } | null = $state(null);
-	let error: unknown = $state(null);
 	const job = $derived(
 		live ??
 			(c.data ? { state: c.data.job.state, since: c.data.job.started_at ?? c.data.job.queued_at ?? undefined, worker: c.data.job.worker } : null)
@@ -36,6 +37,8 @@
 			live = j;
 			if (j.state !== 'queued' && j.state !== 'running') {
 				es.close();
+				if (j.state === 'done') toast.success('Coverage computed');
+				else if (j.state === 'failed') toast.error(`Calculation failed: ${j.error}`);
 				reload().then(() => (live = null));
 			}
 		};
@@ -48,13 +51,12 @@
 
 	/** Queues the computation. */
 	async function compute() {
-		error = null;
 		try {
 			await call(api.POST('/api/coverages/{id}/compute', path));
 			live = { state: 'queued', since: new Date().toISOString() };
 			await reload();
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 	}
 
@@ -85,7 +87,6 @@
 			{/if}
 		{/snippet}
 		{#snippet status()}
-			<FormErrors {error} />
 			{#if job.state === 'queued' && job.since}
 				<Alert.Root class="mb-4">Queued since {clock(job.since)}, waiting for a worker.</Alert.Root>
 			{:else if job.state === 'running' && job.since}

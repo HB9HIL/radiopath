@@ -1,10 +1,13 @@
 <script lang="ts">
 	import Plus from '@lucide/svelte/icons/plus';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { toast } from 'svelte-sonner';
 	import { api, call, type Coverage } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
+	import { ask } from '$lib/confirm.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
+	import { notifyError } from '$lib/notify';
 	import JobBadge from '$lib/JobBadge.svelte';
 	import PageHead from '$lib/PageHead.svelte';
 
@@ -12,17 +15,16 @@
 	const coverages = createQuery(() => ({ queryKey: ['coverages'], queryFn: () => call(api.GET('/api/coverages')) }));
 	const sites = createQuery(() => ({ queryKey: ['sites'], queryFn: () => call(api.GET('/api/sites')) }));
 	const nSites = $derived(sites.data?.length ?? 0);
-	let error: unknown = $state(null);
 
 	/** Deletes a coverage after confirmation. */
 	async function remove(c: Coverage) {
-		if (!confirm(`Delete coverage ${c.name}?`)) return;
-		error = null;
+		if (!(await ask({ title: `Delete coverage ${c.name}?`, action: 'Delete', destructive: true }))) return;
 		try {
 			await call(api.DELETE('/api/coverages/{id}', { params: { path: { id: c.id } } }));
+			toast.success(`Coverage ${c.name} deleted`);
 			await queryClient.invalidateQueries({ queryKey: ['coverages'] });
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 	}
 </script>
@@ -34,7 +36,7 @@
 		<Button disabled title="A coverage needs a site"><Plus />New coverage</Button>
 	{/if}
 </PageHead>
-<FormErrors error={error ?? coverages.error} />
+<FormErrors error={coverages.error} />
 {#if coverages.data && sites.data}
 	{@const list = coverages.data}
 	<div class="rounded-lg border bg-card">

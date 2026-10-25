@@ -68,14 +68,15 @@
 
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { toast } from 'svelte-sonner';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
-	import { ApiError, api, call, parseNum, type CoverageInput } from '$lib/api';
+	import { api, call, parseNum, type CoverageInput } from '$lib/api';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import Field from '$lib/Field.svelte';
-	import FormErrors from '$lib/FormErrors.svelte';
+	import { invalid, notifyError } from '$lib/notify';
 	import LegendTable from '$lib/LegendTable.svelte';
 
 	// legend is the custom legend of the coverage a new one is copied from.
@@ -85,7 +86,6 @@
 	const antennas = createQuery(() => ({ queryKey: ['antennas'], queryFn: () => call(api.GET('/api/antennas')) }));
 	// svelte-ignore state_referenced_locally
 	let v = $state({ ...initial });
-	let error: unknown = $state(null);
 	let busy = $state(false);
 	const txAntenna = $derived(antennas.data?.find((a) => String(a.id) === v.tx_antenna_id));
 
@@ -118,7 +118,7 @@
 			n[k] = parseNum(v[k]);
 			if (isNaN(n[k]!)) nan.push(`${label}: not a number`);
 		}
-		if (nan.length) throw new ApiError(422, 'Invalid input', nan);
+		if (nan.length) throw invalid(...nan);
 		return {
 			name: v.name,
 			site_id: Number(v.site_id),
@@ -142,23 +142,22 @@
 	/** Saves the coverage and opens its page; a copy takes the legend along. */
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
-		error = null;
 		busy = true;
 		try {
 			const b = body();
 			const saved = id
 				? await call(api.PUT('/api/coverages/{id}', { params: { path: { id } }, body: b }))
 				: await call(api.POST('/api/coverages', { body: { ...b, legend: legend?.legend.map((l) => ({ min_db: l.min_db, color: l.color })) } }));
+			toast.success(`Coverage ${saved.name} saved`);
 			await queryClient.invalidateQueries({ queryKey: ['coverages'] });
 			await goto(`/coverages/${saved.id}`);
 		} catch (err) {
-			error = err;
+			notifyError(err);
 			busy = false;
 		}
 	}
 </script>
 
-<FormErrors {error} />
 {#if sites.data && !sites.data.length}
 	<Alert.Root class="mb-4 border-warn/50 text-warn"><span>Create a <a class="underline" href="/sites/new">site</a> first.</span></Alert.Root>
 {/if}

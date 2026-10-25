@@ -1,27 +1,23 @@
 <script lang="ts">
+	import { toast } from 'svelte-sonner';
 	import { api, call } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
-	import FormErrors from '$lib/FormErrors.svelte';
-	import Notice from '$lib/Notice.svelte';
+	import { notifyError } from '$lib/notify';
 
 	let email = $state('');
-	let error: unknown = $state(null);
-	let sent = $state(false);
 	let busy = $state(false);
 
 	/** Requests the reset link; the answer is the same whether the address has an account or not. */
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
 		busy = true;
-		error = null;
-		sent = false;
 		try {
 			await call(api.POST('/api/password/forgot', { body: { email } }));
-			sent = true;
+			toast.success('If that address belongs to an account, a reset link is on its way.');
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 		busy = false;
 	}
@@ -31,8 +27,6 @@
 
 <div class="mx-auto mt-10 w-full max-w-[26rem]">
 	<h1 class="mb-4 text-lg font-semibold">Forgot password</h1>
-	{#if sent}<Notice>If that address belongs to an account, a reset link is on its way.</Notice>{/if}
-	<FormErrors {error} />
 	<form class="grid gap-4 rounded-lg border bg-card p-5" onsubmit={submit}>
 		<Field label="Email">
 			<!-- svelte-ignore a11y_autofocus -->

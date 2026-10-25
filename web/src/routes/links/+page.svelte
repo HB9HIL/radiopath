@@ -1,27 +1,29 @@
 <script lang="ts">
 	import Plus from '@lucide/svelte/icons/plus';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { toast } from 'svelte-sonner';
 	import { api, call, type Link } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
+	import { ask } from '$lib/confirm.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
+	import { notifyError } from '$lib/notify';
 	import PageHead from '$lib/PageHead.svelte';
 
 	const queryClient = useQueryClient();
 	const links = createQuery(() => ({ queryKey: ['links'], queryFn: () => call(api.GET('/api/links')) }));
 	const sites = createQuery(() => ({ queryKey: ['sites'], queryFn: () => call(api.GET('/api/sites')) }));
 	const nSites = $derived(sites.data?.length ?? 0);
-	let error: unknown = $state(null);
 
 	/** Deletes a link after confirmation. */
 	async function remove(l: Link) {
-		if (!confirm(`Delete link ${l.name}?`)) return;
-		error = null;
+		if (!(await ask({ title: `Delete link ${l.name}?`, action: 'Delete', destructive: true }))) return;
 		try {
 			await call(api.DELETE('/api/links/{id}', { params: { path: { id: l.id } } }));
+			toast.success(`Link ${l.name} deleted`);
 			await queryClient.invalidateQueries({ queryKey: ['links'] });
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 	}
 </script>
@@ -33,7 +35,7 @@
 		<Button disabled title="A link needs two sites"><Plus />New link</Button>
 	{/if}
 </PageHead>
-<FormErrors error={error ?? links.error} />
+<FormErrors error={links.error} />
 {#if links.data && sites.data}
 	{@const list = links.data}
 	<div class="rounded-lg border bg-card">

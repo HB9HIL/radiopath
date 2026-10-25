@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { createQuery } from '@tanstack/svelte-query';
+	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { ApiError, api, call, configQuery, meQuery, safeNext } from '$lib/api';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
-	import FormErrors from '$lib/FormErrors.svelte';
 	import Notice from '$lib/Notice.svelte';
+	import { notifyError } from '$lib/notify';
 
 	const notices: Record<string, string> = {
 		registered: 'Almost done: open the confirmation link we sent to your address, then log in.',
@@ -19,10 +21,15 @@
 	const next = safeNext(page.url.searchParams.get('next'));
 	let name = $state('');
 	let password = $state('');
-	let error: unknown = $state(null);
-	let notice = $state(notices[page.url.searchParams.get('msg') ?? ''] ?? '');
-	let unverified = $state(false);
+	// Why the account cannot log in yet, shown next to the resend button.
+	let unverified = $state('');
 	let busy = $state(false);
+
+	// The page a mail link or the registration led here from says what happened.
+	onMount(() => {
+		const msg = notices[page.url.searchParams.get('msg') ?? ''];
+		if (msg) toast.success(msg);
+	});
 
 	// Logged in already: nothing to do here.
 	$effect(() => {
@@ -33,28 +40,24 @@
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
 		busy = true;
-		error = null;
 		try {
 			await call(api.POST('/api/session', { body: { name, password } }));
 			location.assign(next);
 		} catch (err) {
-			if (err instanceof ApiError && err.status === 403) {
-				unverified = true;
-				notice = err.message;
-			} else error = err;
+			if (err instanceof ApiError && err.status === 403) unverified = err.message;
+			else notifyError(err);
 			busy = false;
 		}
 	}
 
 	/** Asks for a new confirmation mail for the name just entered. */
 	async function resend() {
-		error = null;
 		try {
 			await call(api.POST('/api/verify/resend', { body: { name } }));
-			unverified = false;
-			notice = 'If that account is waiting for confirmation, a new link is on its way.';
+			unverified = '';
+			toast.success('If that account is waiting for confirmation, a new link is on its way.');
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 	}
 </script>
@@ -76,12 +79,11 @@
 				<b>Maintenance</b><br />Radiopath is closed for maintenance. Logins are disabled, please try again later.
 			</Alert.Root>
 		{:else}
-			<FormErrors {error} />
-			{#if notice}<Notice>{notice}</Notice>{/if}
 			{#if unverified}
+				<Notice>{unverified}</Notice>
 				<div class="flex flex-wrap items-center gap-4">
 					<Button onclick={resend}>Resend confirmation mail</Button>
-					<button class="text-primary" onclick={() => ((unverified = false), (notice = ''))}>Back to login</button>
+					<button class="text-primary" onclick={() => (unverified = '')}>Back to login</button>
 				</div>
 			{:else}
 				<form class="grid gap-4 rounded-lg border bg-card p-5" onsubmit={submit}>

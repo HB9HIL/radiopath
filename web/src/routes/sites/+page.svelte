@@ -1,26 +1,28 @@
 <script lang="ts">
 	import Plus from '@lucide/svelte/icons/plus';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { toast } from 'svelte-sonner';
 	import { api, call, type Site } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
+	import { ask } from '$lib/confirm.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
+	import { notifyError } from '$lib/notify';
 	import PageHead from '$lib/PageHead.svelte';
 	import SitesMap from '$lib/SitesMap.svelte';
 
 	const queryClient = useQueryClient();
 	const sites = createQuery(() => ({ queryKey: ['sites'], queryFn: () => call(api.GET('/api/sites')) }));
-	let error: unknown = $state(null);
 
 	/** Deletes a site after confirmation; a site still used by a link or coverage stays and the reason is shown. */
 	async function remove(s: Site) {
-		if (!confirm(`Delete site ${s.name}?`)) return;
-		error = null;
+		if (!(await ask({ title: `Delete site ${s.name}?`, action: 'Delete', destructive: true }))) return;
 		try {
 			await call(api.DELETE('/api/sites/{id}', { params: { path: { id: s.id } } }));
+			toast.success(`Site ${s.name} deleted`);
 			await queryClient.invalidateQueries({ queryKey: ['sites'] });
 		} catch (err) {
-			error = err;
+			notifyError(err);
 		}
 	}
 </script>
@@ -28,7 +30,7 @@
 <PageHead title="Sites">
 	<Button href="/sites/new"><Plus />New site</Button>
 </PageHead>
-<FormErrors error={error ?? sites.error} />
+<FormErrors error={sites.error} />
 {#if sites.data}
 	{@const list = sites.data}
 	<div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

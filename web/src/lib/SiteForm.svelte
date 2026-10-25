@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { useQueryClient } from '@tanstack/svelte-query';
-	import { ApiError, api, call, parseNum, type SiteInput } from '$lib/api';
+	import { toast } from 'svelte-sonner';
+	import { api, call, parseNum, type SiteInput } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
-	import FormErrors from '$lib/FormErrors.svelte';
+	import { invalid, notifyError } from '$lib/notify';
 	import { sitePicker } from '$lib/map';
 
 	let { id, initial }: { id?: number; initial: { name: string; lat: string; lon: string; antenna_height_m: string } } = $props();
@@ -13,7 +14,6 @@
 	// Text fields, so a typo shows up as "not a number" instead of being swallowed by the browser. The form is rendered once its data is there.
 	// svelte-ignore state_referenced_locally
 	let v = $state({ ...initial });
-	let error: unknown = $state(null);
 	let busy = $state(false);
 	let el: HTMLDivElement;
 	let picker: ReturnType<typeof sitePicker>;
@@ -39,22 +39,20 @@
 		const body: SiteInput = { name: v.name, lat: parseNum(v.lat), lon: parseNum(v.lon), antenna_height_m: parseNum(v.antenna_height_m) };
 		const labels = { lat: 'Latitude', lon: 'Longitude', antenna_height_m: 'Antenna height' } as const;
 		const nan = (Object.keys(labels) as (keyof typeof labels)[]).filter((k) => isNaN(body[k])).map((k) => `${labels[k]}: not a number`);
-		error = nan.length ? new ApiError(422, 'Invalid input', nan) : null;
-		if (error) return;
+		if (nan.length) return notifyError(invalid(...nan));
 		busy = true;
 		try {
-			if (id) await call(api.PUT('/api/sites/{id}', { params: { path: { id } }, body }));
-			else await call(api.POST('/api/sites', { body }));
+			const saved = id ? await call(api.PUT('/api/sites/{id}', { params: { path: { id } }, body })) : await call(api.POST('/api/sites', { body }));
+			toast.success(`Site ${saved.name} saved`);
 			await queryClient.invalidateQueries({ queryKey: ['sites'] });
 			await goto('/sites');
 		} catch (err) {
-			error = err;
+			notifyError(err);
 			busy = false;
 		}
 	}
 </script>
 
-<FormErrors {error} />
 <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
 	<form class="grid gap-3 rounded-lg border bg-card p-4" onsubmit={submit}>
 		<Field label="Name"><Input name="name" required bind:value={v.name} /></Field>
