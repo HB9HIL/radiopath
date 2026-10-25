@@ -67,6 +67,8 @@ Migrations are embedded and applied at startup.
 
 ## Development
 
+How to contribute, the conventions and the checks a change needs: see `CONTRIBUTING.md`.
+
 ```sh
 make dev                   # http://localhost:5173, login dev / devpassword; Ctrl-C stops everything
 make test
