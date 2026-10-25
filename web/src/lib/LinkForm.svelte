@@ -141,10 +141,10 @@
 	<Alert.Root class="mb-4 border-warn/50 text-warn"><span>Create at least two <a class="underline" href="/sites/new">sites</a> first.</span></Alert.Root>
 {/if}
 {#snippet num(name: keyof LinkValues, label: string, placeholder = '')}
-	<Field {label}><Input class="max-w-68 font-mono" {name} inputmode="decimal" {placeholder} bind:value={v[name]} /></Field>
+	<Field wide {label}><Input class="max-w-68 font-mono" {name} inputmode="decimal" {placeholder} bind:value={v[name]} /></Field>
 {/snippet}
 {#snippet gain(name: 'tx_gain_dbi' | 'rx_gain_dbi', antenna: typeof txAntenna)}
-	<Field label="Antenna gain (dBi)">
+	<Field wide label="Antenna gain (dBi)">
 		{#if antenna}
 			<Input class="max-w-68 font-mono" {name} readonly value={antenna.gain_dbi.toFixed(1)} title="from the selected pattern" />
 		{:else}
@@ -153,7 +153,7 @@
 	</Field>
 {/snippet}
 {#snippet pattern(name: 'tx_antenna_id' | 'rx_antenna_id')}
-	<Field label="Pattern">
+	<Field wide label="Pattern">
 		<NativeSelect class="w-68" {name} bind:value={v[name]}>
 			<option value="">omnidirectional</option>
 			{#each antennas.data ?? [] as a (a.id)}<option value={String(a.id)}>{a.name}</option>{/each}
@@ -164,16 +164,16 @@
 <form class="grid gap-6 rounded-lg border bg-card p-4" onsubmit={submit}>
 	<fieldset class="grid gap-3">
 		<legend class="mb-2 w-full border-b pb-1 text-xs font-medium text-muted-foreground">Link</legend>
-		<Field label="Name"><Input class="max-w-68" name="name" required bind:value={v.name} /></Field>
+		<Field wide label="Name"><Input class="max-w-68" name="name" required bind:value={v.name} /></Field>
 		{#each [['site_a_id', 'Site A (TX)'], ['site_b_id', 'Site B (RX)']] as const as [name, label] (name)}
-			<Field {label}>
+			<Field wide {label}>
 				<NativeSelect class="w-68" {name} bind:value={v[name]}>
 					{#each sites.data ?? [] as s (s.id)}<option value={String(s.id)}>{s.name}</option>{/each}
 				</NativeSelect>
 			</Field>
 		{/each}
 		{@render num('frequency_mhz', 'Frequency (MHz)')}
-		<Field label="Extra path loss (dB)">
+		<Field wide label="Extra path loss (dB)">
 			<span class="flex items-center gap-2">
 				<Input class="max-w-68 font-mono" name="clutter_loss_db" inputmode="decimal" bind:value={v.clutter_loss_db} />
 				<span
@@ -183,7 +183,7 @@
 				>
 			</span>
 		</Field>
-		<Field label="Polarization">
+		<Field wide label="Polarization">
 			<NativeSelect class="w-68" name="polarization" bind:value={v.polarization}>
 				<option value="vertical">vertical</option>
 				<option value="horizontal">horizontal</option>

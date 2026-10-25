@@ -130,20 +130,20 @@
 	<Alert.Root class="mb-4 border-warn/50 text-warn"><span>Create a <a class="underline" href="/sites/new">site</a> first.</span></Alert.Root>
 {/if}
 {#snippet num(name: keyof CoverageValues, label: string, placeholder = '')}
-	<Field {label}><Input class="max-w-68 font-mono" {name} inputmode="decimal" {placeholder} bind:value={v[name]} /></Field>
+	<Field wide {label}><Input class="max-w-68 font-mono" {name} inputmode="decimal" {placeholder} bind:value={v[name]} /></Field>
 {/snippet}
 
 <form class="grid gap-6 rounded-lg border bg-card p-4" onsubmit={submit}>
 	<fieldset class="grid gap-3">
 		<legend class="mb-2 w-full border-b pb-1 text-xs font-medium text-muted-foreground">Coverage</legend>
-		<Field label="Name"><Input class="max-w-68" name="name" required bind:value={v.name} /></Field>
-		<Field label="Site (TX)">
+		<Field wide label="Name"><Input class="max-w-68" name="name" required bind:value={v.name} /></Field>
+		<Field wide label="Site (TX)">
 			<NativeSelect class="w-68" name="site_id" bind:value={v.site_id}>
 				{#each sites.data ?? [] as s (s.id)}<option value={String(s.id)}>{s.name}</option>{/each}
 			</NativeSelect>
 		</Field>
 		{@render num('frequency_mhz', 'Frequency (MHz)')}
-		<Field label="Polarization">
+		<Field wide label="Polarization">
 			<NativeSelect class="w-68" name="polarization" bind:value={v.polarization}>
 				<option value="vertical">vertical</option>
 				<option value="horizontal">horizontal</option>
@@ -153,7 +153,7 @@
 	<fieldset class="grid gap-3">
 		<legend class="mb-2 w-full border-b pb-1 text-xs font-medium text-muted-foreground">Transmitter</legend>
 		{@render num('tx_power_dbm', 'TX power (dBm)')}
-		<Field label="Antenna gain (dBi)">
+		<Field wide label="Antenna gain (dBi)">
 			{#if txAntenna}
 				<Input class="max-w-68 font-mono" name="tx_gain_dbi" readonly value={txAntenna.gain_dbi.toFixed(1)} title="from the selected pattern" />
 			{:else}
@@ -161,7 +161,7 @@
 			{/if}
 		</Field>
 		{@render num('tx_line_loss_db', 'Line loss (dB)')}
-		<Field label="Pattern">
+		<Field wide label="Pattern">
 			<NativeSelect class="w-68" name="tx_antenna_id" bind:value={v.tx_antenna_id}>
 				<option value="">omnidirectional</option>
 				{#each antennas.data ?? [] as a (a.id)}<option value={String(a.id)}>{a.name}</option>{/each}
