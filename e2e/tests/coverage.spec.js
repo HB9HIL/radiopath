@@ -83,7 +83,8 @@ test('edits the legend without recomputing', async ({ page }) => {
   await expect(c(page, 'td', '>= 40 dB')).toBeVisible()
   await expect(c(page, 'td', '20 to 40 dB')).toBeVisible()
   await expect(c(page, 'td', 'below 10 dB / no data')).toBeVisible()
-  await expect(page.locator('.swatch[style*="#ff0000"]')).toHaveCount(1)
+  // the browser normalises the inline colour, so compare the rendered one
+  await expect(c(page, 'tr', '>= 40 dB').locator('.swatch')).toHaveCSS('background-color', 'rgb(255, 0, 0)')
   await expect(page.locator('#job-badge')).toHaveText('done')
   const p = new URL(page.url()).pathname
   expect(await contentType(page, `${p}/image.png`)).toBe('image/png')
