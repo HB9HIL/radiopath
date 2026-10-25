@@ -5,6 +5,8 @@ const submit = async (page, field) => page.locator(`[name=${field}]`).press('Ent
 test('registers, confirms the address and logs in', async ({ page }) => {
   await page.goto('/login')
   await c(page, 'a', 'Create an account').click()
+  // client-side navigation: fill only once the register page replaced the login page
+  await expect(c(page, 'h1', 'Register')).toBeVisible()
   await page.locator('[name=name]').fill('dave')
   await page.locator('[name=email]').fill('dave@example.test')
   await page.locator('[name=password]').fill('dave-password-1')
@@ -36,6 +38,7 @@ test('registers, confirms the address and logs in', async ({ page }) => {
 test('resets a forgotten password', async ({ page }) => {
   await page.goto('/login')
   await c(page, 'a', 'Forgot password?').click()
+  await expect(c(page, 'h1', 'Forgot password')).toBeVisible()
   await page.locator('[name=email]').fill('dave@example.test')
   await submit(page, 'email')
   await expect(c(page, '[role=alert]', 'a reset link is on its way')).toBeVisible()
