@@ -10,6 +10,18 @@
 				if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 				document.documentElement.dataset.theme = t;
 			} catch {}
+			// A tab opened before a deploy asks for chunks the new build no longer has: load the new build instead,
+			// at most once a minute so a build that is really broken does not reload forever.
+			addEventListener('vite:preloadError', (e) => {
+				try {
+					if (Date.now() - Number(sessionStorage.getItem('cp-reload')) < 60000) return;
+					sessionStorage.setItem('cp-reload', String(Date.now()));
+				} catch {
+					return;
+				}
+				e.preventDefault();
+				location.reload();
+			});
 		</script>
 		%sveltekit.head%
 	</head>

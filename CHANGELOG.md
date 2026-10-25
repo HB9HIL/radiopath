@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - The cookies that logout and admin logout clear are marked `Secure` (behind HTTPS) and `SameSite` like the ones they replace (by @HB9HIL)
+- A tab opened before a deploy loads the new version instead of failing on script chunks the new build no longer has (by @HB9HIL)
 - Legend colours are parsed byte by byte, so a colour can never be truncated on its way into a raster or report (by @HB9HIL)
 
 ### Removed
