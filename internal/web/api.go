@@ -19,8 +19,11 @@ func init() {
 	huma.DefaultArrayNullable = false
 }
 
-// Scopes name what an operation needs; for now any session grants all of them.
-const scopeAccountRead = "account:read"
+// Scopes name what an operation needs; for now any session grants all of them. scopeSession marks operations no API token may call.
+const (
+	scopeAccountRead = "account:read"
+	scopeSession     = "session"
+)
 
 // api builds the JSON API on its own mux; Handler mounts it under /api/ behind authenticate.
 func (s *Server) api() *http.ServeMux {
@@ -59,6 +62,7 @@ func (s *Server) registerAPI(api huma.API) {
 	s.registerAntennas(api)
 	s.registerLinks(api)
 	s.registerCoverages(api)
+	s.registerAccount(api)
 }
 
 // op returns an operation; a non-empty scope requires a logged-in user, an empty one makes it public.

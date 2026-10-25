@@ -254,17 +254,6 @@ func (s *Server) newSession(ctx context.Context, userID int64) (http.Cookie, err
 	}, nil
 }
 
-// startSession stores a new session for userID and sets its cookie on a template response.
-func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int64) error {
-	ctx := context.WithValue(r.Context(), reqKey, requestInfo{secure: secureCookie(r)})
-	c, err := s.newSession(ctx, userID)
-	if err != nil {
-		return err
-	}
-	http.SetCookie(w, &c)
-	return nil
-}
-
 var userNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$`)
 
 const userNameRule = "User name: 3 to 32 characters, letters, digits, . _ -, starting with a letter or digit"

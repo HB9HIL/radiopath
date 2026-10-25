@@ -12,7 +12,7 @@
 		try {
 			await call(api.POST('/api/verify', { body: { token: page.params.token ?? '' } }));
 			const { response } = await api.GET('/api/me');
-			if (response.ok) location.assign('/account?msg=verified');
+			if (response.ok) await goto('/account?msg=verified');
 			else await goto('/login?msg=verified');
 		} catch (err) {
 			error = err;

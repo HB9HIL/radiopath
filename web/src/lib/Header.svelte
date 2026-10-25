@@ -40,7 +40,7 @@
 	<div class="ml-auto flex items-center gap-3">
 		<ThemeToggle />
 		{#if me.data}
-			<Button variant="outline" size="sm" href="/account" title="Account" data-sveltekit-reload>{me.data.name}</Button>
+			<Button variant="outline" size="sm" href="/account" title="Account">{me.data.name}</Button>
 			<Button variant="outline" size="sm" onclick={logout}>Logout</Button>
 		{/if}
 	</div>

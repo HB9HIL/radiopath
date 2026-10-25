@@ -26,15 +26,6 @@ const (
 	verifyUserMax = 3
 )
 
-var notices = map[string]string{
-	"verified": "Address confirmed.",
-	"sent":     "Confirmation link sent to the new address. It takes effect once you open it.",
-	"password": "Password changed. Other devices have been logged out.",
-}
-
-// notice returns the message for the ?msg= key of the request, or an empty string.
-func notice(r *http.Request) string { return notices[r.URL.Query().Get("msg")] }
-
 const (
 	verifyMail = `Hi %s,
 
@@ -91,81 +82,73 @@ func (s *Server) sendVerification(ctx context.Context, u store.User, email strin
 	return true, s.sendLink(ctx, u, email, store.TokenVerify)
 }
 
-type accountData struct {
-	base
-	Email    string
-	Verified bool
-	Notice   string
-	Errors   []string
+type PasswordInput struct {
+	Body struct {
+		Current  string `json:"current" doc:"The password in use"`
+		Password string `json:"password" doc:"The new password"`
+	}
 }
 
-// accountPage renders the account page with the given status and form errors.
-func (s *Server) accountPage(w http.ResponseWriter, r *http.Request, status int, errs []string) {
-	u := currentUser(r)
-	s.render(w, status, "account", accountData{base: s.base(r), Email: u.Email, Verified: u.Verified, Notice: notice(r), Errors: errs})
+type EmailOutput struct {
+	Status int
 }
 
-// account renders GET /account.
-func (s *Server) account(w http.ResponseWriter, r *http.Request) {
-	s.accountPage(w, r, http.StatusOK, nil)
-}
+// registerAccount registers the changes of the logged-in user's address and password; both need a session, not a token.
+func (s *Server) registerAccount(api huma.API) {
+	o := op("set-my-email", http.MethodPut, "/api/me/email", scopeSession, "Change the address of the account")
+	o.DefaultStatus = http.StatusAccepted
+	o.Errors = append(o.Errors, http.StatusTooManyRequests)
+	o.Description = "202: a confirmation link went to the new address, which takes effect once it is opened. 204: the address is the same."
+	huma.Register(api, o, func(ctx context.Context, in *EmailInput) (*EmailOutput, error) {
+		u := userOf(ctx)
+		email := validEmail(in.Body.Email)
+		if email == "" {
+			return nil, huma.Error422UnprocessableEntity("Invalid input",
+				&huma.ErrorDetail{Location: "body.email", Message: "Email: not a valid address", Value: in.Body.Email})
+		}
+		if strings.EqualFold(email, u.Email) {
+			return &EmailOutput{Status: http.StatusNoContent}, nil
+		}
+		sent, err := s.sendVerification(ctx, u, email)
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		if !sent {
+			return nil, huma.Error429TooManyRequests(tooMany(mailWindow))
+		}
+		s.Log.Info("email change requested", "user", u.Name)
+		return &EmailOutput{Status: http.StatusAccepted}, nil
+	})
 
-// accountEmail handles POST /account/email: mails a confirmation link to the new address, which only takes effect once opened.
-func (s *Server) accountEmail(w http.ResponseWriter, r *http.Request) {
-	u := currentUser(r)
-	email := validEmail(r.PostFormValue("email"))
-	if email == "" {
-		s.accountPage(w, r, http.StatusUnprocessableEntity, []string{"Email: not a valid address"})
-		return
-	}
-	if strings.EqualFold(email, u.Email) {
-		http.Redirect(w, r, "/account", http.StatusSeeOther)
-		return
-	}
-	sent, err := s.sendVerification(r.Context(), u, email)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	if !sent {
-		s.accountPage(w, r, http.StatusTooManyRequests, []string{tooMany(mailWindow)})
-		return
-	}
-	s.Log.Info("email change requested", "user", u.Name)
-	http.Redirect(w, r, "/account?msg=sent", http.StatusSeeOther)
-}
-
-// accountPassword handles POST /account/password: checks the current password, sets the new one, logs out all other sessions and starts a fresh one.
-func (s *Server) accountPassword(w http.ResponseWriter, r *http.Request) {
-	u := currentUser(r)
-	_, hash, err := s.Store.Credentials(r.Context(), u.Name)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.PostFormValue("current"))) != nil {
-		s.accountPage(w, r, http.StatusUnprocessableEntity, []string{"Current password is wrong"})
-		return
-	}
-	password := r.PostFormValue("password")
-	errs := validatePassword(password)
-	if password != r.PostFormValue("password2") {
-		errs = append(errs, "Passwords do not match")
-	}
-	if len(errs) > 0 {
-		s.accountPage(w, r, http.StatusUnprocessableEntity, errs)
-		return
-	}
-	if err := s.setPassword(r.Context(), u, password); err != nil {
-		s.fail(w, err)
-		return
-	}
-	if err := s.startSession(w, r, u.ID); err != nil {
-		s.fail(w, err)
-		return
-	}
-	s.Log.Info("password changed", "user", u.Name)
-	http.Redirect(w, r, "/account?msg=password", http.StatusSeeOther)
+	o = op("set-my-password", http.MethodPut, "/api/me/password", scopeSession, "Change the password of the account")
+	o.DefaultStatus = http.StatusNoContent
+	o.Description = "Logs out every session of the account and sets a fresh cookie for this one."
+	huma.Register(api, o, func(ctx context.Context, in *PasswordInput) (*SessionOutput, error) {
+		u := userOf(ctx)
+		_, hash, err := s.Store.Credentials(ctx, u.Name)
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		if bcrypt.CompareHashAndPassword([]byte(hash), []byte(in.Body.Current)) != nil {
+			return nil, huma.Error422UnprocessableEntity("Invalid input", &huma.ErrorDetail{Location: "body.current", Message: "Current password is wrong"})
+		}
+		var errs []error
+		for _, m := range validatePassword(in.Body.Password) {
+			errs = append(errs, &huma.ErrorDetail{Location: "body.password", Message: m})
+		}
+		if len(errs) > 0 {
+			return nil, huma.Error422UnprocessableEntity("Invalid input", errs...)
+		}
+		if err := s.setPassword(ctx, u, in.Body.Password); err != nil {
+			return nil, s.storeErr(err)
+		}
+		c, err := s.newSession(ctx, u.ID)
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		s.Log.Info("password changed", "user", u.Name)
+		return &SessionOutput{SetCookie: c}, nil
+	})
 }
 
 // setPassword stores the new hash for u and revokes all of its sessions.

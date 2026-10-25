@@ -21,8 +21,6 @@ func TestRenderPages(t *testing.T) {
 		page string
 		data any
 	}{
-		{"account", accountData{base: base{User: "hb9hil"}, Email: "op@example.org", Verified: true, Notice: notices["sent"]}},
-		{"account", accountData{base: base{User: "hb9hil"}, Errors: []string{"Current password is wrong"}}},
 		{"notfound", base{}},
 		{"admin_login", adminLoginData{base: base{Admin: true}, Error: "Wrong token."}},
 		{"admin_users", adminData{base: base{Admin: true}, Notice: "hb9hil: 2 session(s) revoked",

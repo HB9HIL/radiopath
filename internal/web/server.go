@@ -24,15 +24,12 @@ var templateFS embed.FS
 //go:embed static
 var staticFS embed.FS
 
-var pages = []string{"account", "admin_login", "admin_users", "notfound"}
+var pages = []string{"admin_login", "admin_users", "notfound"}
 
 type base struct {
 	User  string
 	Admin bool
 }
-
-// base returns the template data shared by all logged-in pages.
-func (s *Server) base(r *http.Request) base { return base{User: currentUser(r).Name} }
 
 type Server struct {
 	Store        *store.Store
@@ -85,10 +82,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /logout", s.logout)
 
 	mux.HandleFunc("GET /links/{id}/report.pdf", s.linkReport)
-
-	mux.HandleFunc("GET /account", s.account)
-	mux.HandleFunc("POST /account/email", s.accountEmail)
-	mux.HandleFunc("POST /account/password", s.accountPassword)
 
 	mux.HandleFunc("GET /coverages/{id}/report.pdf", s.coverageReport)
 	mux.HandleFunc("GET /coverages/{id}/image.png", s.coverageImage)
