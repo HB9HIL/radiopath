@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -51,6 +52,8 @@ type Server struct {
 	AdminToken   string
 	Version      string
 	Log          *slog.Logger
+	// UI holds the built SPA (webui.FS()), served for every path no route claims.
+	UI fs.FS
 
 	tmpl map[string]*template.Template
 }
@@ -183,7 +186,15 @@ func (s *Server) Handler() http.Handler {
 		root.HandleFunc("GET /verify/{token}", s.verify)
 		root.HandleFunc("POST /verify/resend", s.resendVerification)
 	}
-	root.Handle("/", s.requireAuth(mux))
+	// ponytail: template routes go first until each section is ported to the SPA, then "/" serves only the SPA.
+	app, spa := s.requireAuth(mux), s.spa()
+	root.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, p := mux.Handler(r); p != "" {
+			app.ServeHTTP(w, r)
+			return
+		}
+		spa.ServeHTTP(w, r)
+	}))
 
 	return secureHeaders(instrument(root, mux, http.NewCrossOriginProtection().Handler(root)))
 }
@@ -196,6 +207,36 @@ func secureHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		next.ServeHTTP(w, r)
+	})
+}
+
+// spa serves the SvelteKit build: existing files as they are, any other path without a file extension the index.html fallback.
+// Unknown API paths, _app assets and files answer 404, so a stale bundle fails loudly instead of loading HTML.
+func (s *Server) spa() http.Handler {
+	files := http.FileServerFS(s.UI)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
+			http.NotFound(w, r)
+			return
+		}
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name == "" {
+			name = "index.html"
+		}
+		if _, err := fs.Stat(s.UI, name); err != nil {
+			if strings.HasPrefix(name, "_app/") || strings.Contains(path.Base(name), ".") {
+				http.NotFound(w, r)
+				return
+			}
+			r = r.Clone(r.Context())
+			r.URL.Path = "/"
+		}
+		if strings.HasPrefix(name, "_app/immutable/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		files.ServeHTTP(w, r)
 	})
 }
 

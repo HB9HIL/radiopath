@@ -12,3 +12,6 @@
 /tmp/
 /e2e/node_modules/
 /e2e/test-results/
+/internal/webui/dist/
+/web/node_modules/
+/web/.svelte-kit/

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 )
 
@@ -68,7 +69,7 @@ func TestTokenMatches(t *testing.T) {
 }
 
 func TestAdminDisabled(t *testing.T) {
-	h := (&Server{Log: slog.Default()}).Handler()
+	h := (&Server{Log: slog.Default(), UI: fstest.MapFS{"index.html": {Data: []byte("spa")}}}).Handler()
 	get := func(path string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))

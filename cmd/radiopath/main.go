@@ -25,6 +25,7 @@ import (
 	"github.com/radiopath/radiopath/internal/store"
 	"github.com/radiopath/radiopath/internal/tiles"
 	"github.com/radiopath/radiopath/internal/web"
+	"github.com/radiopath/radiopath/internal/webui"
 	"github.com/radiopath/radiopath/internal/worker"
 )
 
@@ -257,6 +258,7 @@ func run(ctx context.Context, cfg config, log *slog.Logger) error {
 		AdminToken:   cfg.adminToken,
 		Version:      version,
 		BaseURL:      cfg.baseURL,
+		UI:           webui.FS(),
 		Log:          log,
 	}
 	if cfg.smtp.Host != "" {

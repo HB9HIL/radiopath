@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 func TestSafeNext(t *testing.T) {
@@ -84,12 +85,12 @@ func TestValidEmail(t *testing.T) {
 }
 
 func TestMailRoutesNeedMailer(t *testing.T) {
-	h := (&Server{Log: slog.Default()}).Handler()
+	h := (&Server{Log: slog.Default(), UI: fstest.MapFS{"index.html": {Data: []byte("spa")}}}).Handler()
 	for _, path := range []string{"/forgot", "/reset/abc", "/verify/abc"} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
-		if w.Code != http.StatusSeeOther || !strings.HasPrefix(w.Header().Get("Location"), "/login") {
-			t.Errorf("%s without mailer: %d %s", path, w.Code, w.Header().Get("Location"))
+		if w.Code != http.StatusOK || w.Body.String() != "spa" {
+			t.Errorf("%s without mailer: %d %q, want the SPA fallback", path, w.Code, w.Body.String())
 		}
 	}
 }

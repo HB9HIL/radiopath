@@ -29,13 +29,31 @@ services:
       - "1025:1025"
       - "8025:8025"
 
-  # Stylesheet build, run by the Makefile (make css, make dev); never started by up.
+  # Node for the Makefile (stylesheet, SPA build and check); never started by up.
   node:
     image: node:26-alpine
     profiles: [tools]
     working_dir: /src
     environment:
       HOME: /tmp
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+    volumes:
+      - ..:/src
+
+  # Vite dev server of make dev; the proxy reaches the Go server on the host.
+  vite:
+    image: node:26-alpine
+    profiles: [tools]
+    working_dir: /src/web
+    command: ["npx", "vite", "dev", "--host", "0.0.0.0", "--strictPort"]
+    environment:
+      HOME: /tmp
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+      BACKEND: http://host.docker.internal:8080
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "5173:5173"
     volumes:
       - ..:/src
 

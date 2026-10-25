@@ -68,7 +68,7 @@ Migrations are embedded and applied at startup.
 ## Development
 
 ```sh
-make dev                   # http://localhost:8080, login dev / devpassword; Ctrl-C stops everything
+make dev                   # http://localhost:5173, login dev / devpassword; Ctrl-C stops everything
 make test
 ```
 
@@ -76,16 +76,20 @@ make test
 and canopy tiles of [radiopath/testfiles](https://github.com/radiopath/testfiles)
 (N47E009 only) into `tmp/testfiles`, starts PostGIS, Valkey and Mailpit
 (http://localhost:8025) via docker compose, rebuilds the stylesheet on every
-template change and runs the server in the foreground. Node only runs in the
-`node` compose service; the host needs Go and Docker, nothing else. `make css`
-builds the committed stylesheet once, `go build`, `go test` and the Docker image
-need no Node at all.
+template change, runs the server in the background and the Vite dev server of
+the SvelteKit app in `web/` in the foreground. Vite proxies everything the Go
+server answers (`/api`, `/admin`, tiles, images, reports) to it. Node only runs
+in the `node` and `vite` compose services; the host needs Go and Docker, nothing
+else. `make web` builds the SPA into `internal/webui/dist`, which the binary
+embeds; `make check` type-checks it. `go vet` and `go test` only need the empty
+placeholder that `make test` and `make vet` create. `make css` builds the
+committed stylesheet of the template pages once.
 
 CI (`.github/workflows/ci.yml`) runs gofmt, vet, staticcheck (`go tool
 staticcheck ./...`) and the unit tests, govulncheck, `scripts/funcdoc.py` (every
-function needs a doc comment), the stylesheet check and the e2e specs. It builds
-the static Linux binaries for amd64 and arm64 once: e2e tests the amd64 one,
-`docker/ci.Dockerfile` packs both into the multi-arch image
+function needs a doc comment), the stylesheet check, svelte-check and the e2e
+specs. It builds the SPA and with it the static Linux binaries for amd64 and
+arm64 once: e2e tests the amd64 one, `docker/ci.Dockerfile` packs both into the multi-arch image
 `ghcr.io/radiopath/radiopath:<sha>`, tagged `staging` on main.
 
 Releases: note the changes under `## [Unreleased]` in `CHANGELOG.md`, move them

@@ -6,6 +6,8 @@ bin/
 docker/
 e2e/
 .github/
-node_modules/
+**/node_modules
+web/.svelte-kit
+internal/webui/dist
 tmp/
 renovate.json

@@ -1,0 +1,137 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@font-face {
+	font-family: 'IBM Plex Sans';
+	src: url(/static/fonts/IBMPlexSans-400.woff2) format('woff2');
+	font-weight: 400;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'IBM Plex Sans';
+	src: url(/static/fonts/IBMPlexSans-500.woff2) format('woff2');
+	font-weight: 500;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'IBM Plex Sans';
+	src: url(/static/fonts/IBMPlexSans-600.woff2) format('woff2');
+	font-weight: 600;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url(/static/fonts/JetBrainsMono-Regular.woff2) format('woff2');
+	font-weight: 400;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url(/static/fonts/JetBrainsMono-Bold.woff2) format('woff2');
+	font-weight: 700;
+	font-display: swap;
+}
+
+@theme inline {
+	--font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--color-ok: var(--cp-ok);
+	--color-warn: var(--cp-warn);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+}
+
+/* The radiopath palette (formerly internal/web/ui/app.css), mapped onto the shadcn variables. */
+:root {
+	color-scheme: light;
+	--cp-bg: #f6f7f8;
+	--cp-surface: #ffffff;
+	--cp-line: #dcdfe4;
+	--cp-line-soft: #eceef1;
+	--cp-fg: #14171b;
+	--cp-muted: #5c6470;
+	--cp-accent: #1a5fb4;
+	--cp-ok: #2e7d32;
+	--cp-warn: #8a5a00;
+	--cp-danger: #a40000;
+	--cp-terrain: #c8b58a;
+	--cp-terrain-edge: #6b5a34;
+	--cp-fresnel: #2a7fd4;
+	--cp-ray: #d42a2a;
+	--cp-canopy: #5e9c4f;
+}
+
+[data-theme='dark'] {
+	color-scheme: dark;
+	--cp-bg: #0f1114;
+	--cp-surface: #16191e;
+	--cp-line: #2b3038;
+	--cp-line-soft: #21252b;
+	--cp-fg: #e7e9ec;
+	--cp-muted: #99a1ad;
+	--cp-accent: #5b9dff;
+	--cp-ok: #5fd07a;
+	--cp-warn: #e0a33a;
+	--cp-danger: #ff7a7a;
+	--cp-terrain: #4a4231;
+	--cp-terrain-edge: #8a7746;
+	--cp-fresnel: #6aa9e8;
+	--cp-ray: #ff6b6b;
+	--cp-canopy: #3f7a37;
+}
+
+:root,
+[data-theme='dark'] {
+	--radius: 0.25rem;
+	--background: var(--cp-bg);
+	--foreground: var(--cp-fg);
+	--card: var(--cp-surface);
+	--card-foreground: var(--cp-fg);
+	--popover: var(--cp-surface);
+	--popover-foreground: var(--cp-fg);
+	--primary: var(--cp-accent);
+	--primary-foreground: #ffffff;
+	--secondary: var(--cp-line-soft);
+	--secondary-foreground: var(--cp-fg);
+	--muted: var(--cp-line-soft);
+	--muted-foreground: var(--cp-muted);
+	--accent: var(--cp-line-soft);
+	--accent-foreground: var(--cp-fg);
+	--destructive: var(--cp-danger);
+	--border: var(--cp-line);
+	--input: var(--cp-line);
+	--ring: var(--cp-accent);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground font-sans text-[14px] leading-[1.5] antialiased;
+	}
+}
