@@ -6,31 +6,31 @@
 
 @font-face {
 	font-family: 'IBM Plex Sans';
-	src: url(/static/fonts/IBMPlexSans-400.woff2) format('woff2');
+	src: url(/fonts/IBMPlexSans-400.woff2) format('woff2');
 	font-weight: 400;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'IBM Plex Sans';
-	src: url(/static/fonts/IBMPlexSans-500.woff2) format('woff2');
+	src: url(/fonts/IBMPlexSans-500.woff2) format('woff2');
 	font-weight: 500;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'IBM Plex Sans';
-	src: url(/static/fonts/IBMPlexSans-600.woff2) format('woff2');
+	src: url(/fonts/IBMPlexSans-600.woff2) format('woff2');
 	font-weight: 600;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'JetBrains Mono';
-	src: url(/static/fonts/JetBrainsMono-Regular.woff2) format('woff2');
+	src: url(/fonts/JetBrainsMono-Regular.woff2) format('woff2');
 	font-weight: 400;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'JetBrains Mono';
-	src: url(/static/fonts/JetBrainsMono-Bold.woff2) format('woff2');
+	src: url(/fonts/JetBrainsMono-Bold.woff2) format('woff2');
 	font-weight: 700;
 	font-display: swap;
 }
@@ -65,7 +65,7 @@
 	--radius-xl: calc(var(--radius) * 1.4);
 }
 
-/* The radiopath palette (formerly internal/web/ui/app.css), mapped onto the shadcn variables. */
+/* The radiopath palette, mapped onto the shadcn variables. */
 :root {
 	color-scheme: light;
 	--cp-bg: #f6f7f8;

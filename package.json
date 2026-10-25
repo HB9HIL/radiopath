@@ -1,9 +1,0 @@
-{
-  "name": "radiopath-ui",
-  "private": true,
-  "description": "Build tooling for the Radiopath stylesheet, run in the node compose service (make css). The Go binary needs none of this; internal/web/static/app.css is committed.",
-  "devDependencies": {
-    "@tailwindcss/cli": "4.3.3",
-    "tailwindcss": "4.3.3"
-  }
-}

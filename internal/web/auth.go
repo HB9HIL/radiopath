@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -85,7 +84,7 @@ func sessionID(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// currentUser returns the user that requireAuth put into the request context, or the zero value.
+// currentUser returns the user that requireUser put into the request context, or the zero value.
 func currentUser(r *http.Request) store.User {
 	u, _ := r.Context().Value(userKey).(store.User)
 	return u
@@ -105,21 +104,19 @@ func (s *Server) sessionUser(r *http.Request) (store.User, error) {
 	return s.Store.SessionUser(r.Context(), sessionID(c.Value), sessionIdle, sessionTTL)
 }
 
-// requireAuth puts the session user into the context, or redirects to /login with a safe return path; store errors give a 500.
-func (s *Server) requireAuth(next http.Handler) http.Handler {
+// requireUser puts the session user into the context, or answers 401; store errors give a 500.
+func (s *Server) requireUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if u, err := s.sessionUser(r); err == nil {
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
+		u, err := s.sessionUser(r)
+		if errors.Is(err, store.ErrNotFound) {
+			http.Error(w, "not logged in", http.StatusUnauthorized)
 			return
-		} else if !errors.Is(err, store.ErrNotFound) {
+		}
+		if err != nil {
 			s.fail(w, err)
 			return
 		}
-		next_ := "/"
-		if r.Method == http.MethodGet && r.URL.Path != "/" {
-			next_ = r.URL.RequestURI()
-		}
-		http.Redirect(w, r, "/login?next="+url.QueryEscape(next_), http.StatusSeeOther)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
 	})
 }
 
@@ -335,15 +332,4 @@ func (s *Server) register(ctx context.Context, in *RegisterInput) (*struct{}, er
 	}
 	s.Log.Info("registered", "user", name, "remote", ip)
 	return nil, nil
-}
-
-// logout deletes the session, clears the cookie and redirects to /login.
-func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if c, err := r.Cookie(sessionCookie); err == nil {
-		if err := s.Store.DeleteSession(r.Context(), sessionID(c.Value)); err != nil {
-			s.Log.Warn("logout", "err", err)
-		}
-	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1})
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

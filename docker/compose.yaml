@@ -29,7 +29,7 @@ services:
       - "1025:1025"
       - "8025:8025"
 
-  # Node for the Makefile (stylesheet, SPA build and check); never started by up.
+  # Node for the Makefile (SPA build, check, API types); never started by up.
   node:
     image: node:26-alpine
     profiles: [tools]

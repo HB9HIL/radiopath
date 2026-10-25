@@ -11,8 +11,8 @@ import (
 	"github.com/radiopath/radiopath/internal/store"
 )
 
-func TestRenderPages(t *testing.T) {
-	s := &Server{Log: slog.Default(), Registration: true, Version: "0.1.0-42-gdeadbee"}
+func TestRenderAdmin(t *testing.T) {
+	s := &Server{Log: slog.Default()}
 	s.Handler()
 
 	now := time.Now()
@@ -21,7 +21,6 @@ func TestRenderPages(t *testing.T) {
 		page string
 		data any
 	}{
-		{"notfound", base{}},
 		{"admin_login", adminLoginData{base: base{Admin: true}, Error: "Wrong token."}},
 		{"admin_users", adminData{base: base{Admin: true}, Notice: "hb9hil: 2 session(s) revoked",
 			Users:       []store.UserStat{{User: store.User{ID: 1, Name: "hb9hil", CreatedAt: now}, Sessions: 2, LastLogin: &now}},
@@ -46,7 +45,7 @@ func TestRenderPages(t *testing.T) {
 		if strings.Contains(out, "<no value>") {
 			t.Errorf("%s: rendered a missing value", c.page)
 		}
-		for _, want := range []string{`href="/static/app.css`, "cp-theme", "</html>"} {
+		for _, want := range []string{"/fonts/IBMPlexSans-400.woff2", "cp-theme", "</html>"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("%s: missing %q", c.page, want)
 			}

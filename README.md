@@ -75,19 +75,20 @@ make test
 `make dev` creates `.env` from `.env.example` on first start, clones the terrain
 and canopy tiles of [radiopath/testfiles](https://github.com/radiopath/testfiles)
 (N47E009 only) into `tmp/testfiles`, starts PostGIS, Valkey and Mailpit
-(http://localhost:8025) via docker compose, rebuilds the stylesheet on every
-template change, runs the server in the background and the Vite dev server of
-the SvelteKit app in `web/` in the foreground. Vite proxies everything the Go
+(http://localhost:8025) via docker compose, runs the server in the background
+and the Vite dev server of the SvelteKit app in `web/` in the foreground. Vite proxies everything the Go
 server answers (`/api`, `/admin`, tiles, images, reports) to it. Node only runs
 in the `node` and `vite` compose services; the host needs Go and Docker, nothing
 else. `make web` builds the SPA into `internal/webui/dist`, which the binary
 embeds; `make check` type-checks it. `go vet` and `go test` only need the empty
-placeholder that `make test` and `make vet` create. `make css` builds the
-committed stylesheet of the template pages once.
+placeholder that `make test` and `make vet` create. After changing an API
+operation run `make api`: it writes `web/openapi.json` (`radiopath openapi`)
+and the TypeScript types `web/src/lib/api.gen.ts`; commit both.
 
 CI (`.github/workflows/ci.yml`) runs gofmt, vet, staticcheck (`go tool
 staticcheck ./...`) and the unit tests, govulncheck, `scripts/funcdoc.py` (every
-function needs a doc comment), the stylesheet check, svelte-check and the e2e
+function needs a doc comment, Go and TypeScript), whether the OpenAPI
+description and its TypeScript types are current, svelte-check and the e2e
 specs. It builds the SPA and with it the static Linux binaries for amd64 and
 arm64 once: e2e tests the amd64 one, `docker/ci.Dockerfile` packs both into the multi-arch image
 `ghcr.io/radiopath/radiopath:<sha>`, tagged `staging` on main.
@@ -188,9 +189,10 @@ scripts/sync-canopy-s3.sh N45E009        # one 3x3 degree source tile
 
 ## Login
 
-All pages require a login; public are `/healthz`, `/readyz`, `/static/`,
-`/login`, `/register`, the tile proxy `/tiles/` and the share links under `/s/`
-(see below). Users
+Everything except the login, registration and password reset pages, the tile
+proxy `/tiles/`, `/healthz`, `/readyz` and the share links under `/s/` (see
+below) requires a login: the API answers 401 without a session, and the app
+sends the browser to `/login`, back to the page afterwards. Users
 can register themselves unless `RADIOPATH_REGISTRATION=false`; names are 3 to
 32 characters (letters, digits, `._-`) and unique ignoring case, passwords need
 10 characters (at most 72). Registering asks for an email address and mails a
@@ -229,7 +231,7 @@ most once per session per hour, not once per request. The cookie is `HttpOnly`, 
 `Secure` when the request came over TLS or with `X-Forwarded-Proto: https`; make
 sure the ingress sets that header. CSRF protection uses Go's
 `http.CrossOriginProtection` (Sec-Fetch-Site / Origin checks on every POST),
-so forms carry no tokens. Every response carries `X-Content-Type-Options:
+so requests carry no tokens. Every response carries `X-Content-Type-Options:
 nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`; TLS and
 HSTS are the ingress's job.
 
@@ -252,8 +254,10 @@ stored on the coverage and published with it, so a multi-site picture stays a mu
 the URL, "Revoke" kills it immediately. The visitor sees no navigation, no
 account name and no other object of the owner; nothing on the page can change
 or recompute anything. The token is what grants access, so treat the URL as the
-secret: shared pages are sent `X-Robots-Tag: noindex` and `Cache-Control:
-no-store`, but a URL pasted somewhere public is public.
+secret: shared pages are sent `X-Robots-Tag: noindex`, their rasters and
+reports also `Cache-Control: no-store`, but a URL pasted somewhere public is
+public. The page and the API call behind it (`/api/share/links/<token>`,
+`/api/share/coverages/<token>`) count against the same 120 requests per hour.
 
 ## Admin panel
 
@@ -313,12 +317,29 @@ patterns and mechanical downtilt are not modelled.
 
 ## User interface
 
-Server-rendered `html/template`, no JS framework; Leaflet is the only script.
-Styling is Tailwind CSS v4: the source is `internal/web/ui/app.css`, the built
-stylesheet `internal/web/static/app.css` is committed and embedded, so nothing
-but Go is needed to build or deploy the app. After changing a template or the
-source CSS run `make css` (`make dev` keeps it current) and commit the result; the CI
-job `lint-css` rebuilds it and fails if the committed file is stale.
+A SvelteKit app in `web/` (Svelte 5, TypeScript, Tailwind CSS v4, shadcn-svelte
+components, TanStack Query, Leaflet), built as a static single-page app with
+`adapter-static` into `internal/webui/dist` and embedded in the binary: the
+server answers every path that is not an API, admin, tile, raster or report
+route with the app's `index.html`. The app talks to the server only through the
+JSON API below; profile and pattern plots come from the server as SVG. The
+admin panel is the one server-rendered page left (`html/template`, plain CSS in
+`internal/web/templates/admin_layout.html`), so it keeps working whatever the
+app does.
+
+## API
+
+The app uses the same JSON API that other programs can use, under `/api`. It is
+described by OpenAPI 3.1 at `/api/openapi.json` with interactive docs at
+`/api/docs`, generated from the Go types with
+[huma](https://huma.rocks) (`internal/web/api.go`, operations next to their
+resource in `sites.go`, `links.go`, `coverages.go`, ...). Errors are RFC 7807
+problem details; invalid input answers 422 with one entry per field in
+`errors[].location` (`body.lat`). Authentication is the session cookie of
+`POST /api/session`; personal API tokens with scopes for third-party programs
+are planned. Rasters, reports and the job event stream of a coverage
+(`/coverages/{id}/image.png`, `composite.png`, `report.pdf`, `events`) are plain
+HTTP routes next to the API, as are their shared variants under `/s/`.
 
 A computed coverage page can show the other computed rasters together with its
 own, with one opacity slider for all of them. Ticked rasters are merged by the
@@ -359,12 +380,13 @@ IBM Plex Sans, JetBrains Mono is reserved for numbers and results.
 
 ## Map tiles
 
-Browsers never load tiles from OpenStreetMap directly. Leaflet (vendored under
-`internal/web/static/leaflet`, BSD-2) requests `/tiles/{z}/{x}/{y}.png` from
+Browsers never load tiles from OpenStreetMap directly. Leaflet (bundled into
+the app, BSD-2) requests `/tiles/{z}/{x}/{y}.png` from
 Radiopath, which serves them from Redis or fetches them once from the upstream
 server with its own User-Agent and stores them for `RADIOPATH_TILE_TTL`. Tiles
-and static assets carry ETags, so a browser reload revalidates with 304 instead
-of downloading them again. Size the
+carry ETags, so a browser reload revalidates with 304 instead of downloading
+them again; the app's hashed files under `/_app/immutable/` are cached for a
+year. Size the
 Redis `maxmemory` with an LRU policy; a few hundred MB is plenty. Only tiles that
 miss the cache count against `RADIOPATH_TILE_MISSES_PER_IP`, so normal map use
 never hits the limit and a crawler walking the tile pyramid gets 429s; raise it
@@ -492,10 +514,9 @@ modified Radiopath as a hosted service without publishing your changes, a
 commercial license is available, see `COMMERCIAL-LICENSE.md`.
 
 The ITM port in `internal/itm` derives from NTIA public domain software, see
-`internal/itm/NOTICE`. Vendored: Leaflet 1.9.4 (BSD-2,
-`internal/web/static/leaflet/LICENSE`), JetBrains Mono 2.304 and IBM Plex Sans
-(both SIL OFL 1.1, `internal/web/static/fonts/OFL-*.txt`) and four Lucide icons
-(ISC) inlined in `internal/web/templates/icons.html`.
+`internal/itm/NOTICE`. Bundled into the app:
+Leaflet 1.9.4 (BSD-2), Lucide icons (ISC), JetBrains Mono 2.304 and IBM Plex
+Sans (both SIL OFL 1.1, `web/static/fonts/OFL-*.txt`).
 
 Data: terrain from the Copernicus DEM GLO-30 (© DLR e.V. 2010-2014 and
 © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the

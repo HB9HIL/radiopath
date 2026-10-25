@@ -21,13 +21,10 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
-//go:embed static
-var staticFS embed.FS
-
-var pages = []string{"admin_login", "admin_users", "notfound"}
+// The admin panel is the only server-rendered HTML; everything else is the SPA.
+var pages = []string{"admin_login", "admin_users"}
 
 type base struct {
-	User  string
 	Admin bool
 }
 
@@ -49,46 +46,26 @@ type Server struct {
 	tmpl map[string]*template.Template
 }
 
-// Handler parses the templates and builds the full route tree: public, share, optional admin, registration and mail routes, and everything else behind requireAuth.
+// Handler parses the admin templates and builds the route tree: health, tiles, the JSON API, the binary routes of
+// rasters, reports and job events, the optional admin panel, and the SPA for every other path.
 func (s *Server) Handler() http.Handler {
-	funcs := template.FuncMap{
-		"asset":   assetURL,
-		"version": func() string { return s.Version },
-	}
 	s.tmpl = make(map[string]*template.Template, len(pages))
 	for _, p := range pages {
-		s.tmpl[p] = template.Must(template.New("layout.html").Funcs(funcs).
-			ParseFS(templateFS, "templates/layout.html", "templates/icons.html",
-				"templates/"+p+".html"))
+		s.tmpl[p] = template.Must(template.ParseFS(templateFS, "templates/admin_layout.html", "templates/"+p+".html"))
 	}
 
 	if s.Tiles != nil {
 		s.Tiles.ClientIP = s.clientIP
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		n, err := s.Store.CountSites(r.Context(), currentUser(r).ID)
-		if err != nil {
-			s.fail(w, err)
-			return
-		}
-		if n == 0 {
-			http.Redirect(w, r, "/sites", http.StatusSeeOther)
-			return
-		}
-		http.Redirect(w, r, "/links", http.StatusSeeOther)
-	})
-	mux.HandleFunc("POST /logout", s.logout)
-
-	mux.HandleFunc("GET /links/{id}/report.pdf", s.linkReport)
-
-	mux.HandleFunc("GET /coverages/{id}/report.pdf", s.coverageReport)
-	mux.HandleFunc("GET /coverages/{id}/image.png", s.coverageImage)
-	mux.HandleFunc("GET /coverages/{id}/composite.png", s.coverageComposite)
-	mux.HandleFunc("GET /coverages/{id}/events", s.coverageEvents)
-
 	root := http.NewServeMux()
+	user := func(h http.HandlerFunc) http.Handler { return s.requireUser(h) }
+	root.Handle("GET /links/{id}/report.pdf", user(s.linkReport))
+	root.Handle("GET /coverages/{id}/report.pdf", user(s.coverageReport))
+	root.Handle("GET /coverages/{id}/image.png", user(s.coverageImage))
+	root.Handle("GET /coverages/{id}/composite.png", user(s.coverageComposite))
+	root.Handle("GET /coverages/{id}/events", user(s.coverageEvents))
+
 	if s.adminEnabled() {
 		admin := http.NewServeMux()
 		admin.HandleFunc("GET /admin/{$}", s.adminIndex)
@@ -127,20 +104,11 @@ func (s *Server) Handler() http.Handler {
 	})
 	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok\n")) })
 	root.HandleFunc("GET /readyz", s.readyz)
-	root.Handle("GET /static/", staticHandler())
 	api := s.api()
 	root.Handle("/api/", s.authenticate(api))
-	// ponytail: template routes go first until each section is ported to the SPA, then "/" serves only the SPA.
-	app := s.requireAuth(mux)
-	root.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, p := mux.Handler(r); p != "" {
-			app.ServeHTTP(w, r)
-			return
-		}
-		spa.ServeHTTP(w, r)
-	}))
+	root.Handle("/", spa)
 
-	return secureHeaders(instrument(root, map[string]*http.ServeMux{"/": mux, "/api/": api}, http.NewCrossOriginProtection().Handler(root)))
+	return secureHeaders(instrument(root, map[string]*http.ServeMux{"/api/": api}, http.NewCrossOriginProtection().Handler(root)))
 }
 
 // secureHeaders adds the nosniff, frame and referrer headers to every response.
@@ -203,54 +171,6 @@ func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok\n"))
 }
 
-var staticETags = func() map[string]string {
-	etags := map[string]string{}
-	fs.WalkDir(staticFS, "static", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		b, err := staticFS.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		etags["/"+path] = tiles.ETag(b)
-		return nil
-	})
-	return etags
-}()
-
-// assetURL appends the content hash to a static path so browsers can cache it forever; unknown paths come back unchanged.
-func assetURL(path string) string {
-	etag, ok := staticETags[path]
-	if !ok {
-		return path
-	}
-	return path + "?v=" + strings.Trim(etag, `"`)
-}
-
-// staticHandler serves the embedded static files with ETags, immutable caching for hashed URLs and 304 on a match.
-func staticHandler() http.Handler {
-	files := http.StripPrefix("/", http.FileServerFS(staticFS))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		etag, ok := staticETags[r.URL.Path]
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-		if r.URL.Query().Get("v") == strings.Trim(etag, `"`) {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		} else {
-			w.Header().Set("Cache-Control", "no-cache")
-		}
-		w.Header().Set("ETag", etag)
-		if r.Header.Get("If-None-Match") == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		files.ServeHTTP(w, r)
-	})
-}
-
 // render executes the named page template with the given status.
 func (s *Server) render(w http.ResponseWriter, status int, page string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -260,13 +180,13 @@ func (s *Server) render(w http.ResponseWriter, status int, page string, data any
 	}
 }
 
-// notFound renders the 404 page.
+// notFound answers 404 in plain text; the pages people see are the SPA's.
 func (s *Server) notFound(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	s.render(w, http.StatusNotFound, "notfound", base{})
+	http.Error(w, "404 page not found", http.StatusNotFound)
 }
 
-// fail maps store.ErrNotFound to the 404 page and logs anything else, answering 500 without details.
+// fail answers 404 for store.ErrNotFound and logs anything else, answering 500 without details.
 func (s *Server) fail(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):

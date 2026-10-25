@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- JSON API under `/api`, described by OpenAPI at `/api/openapi.json` with docs at `/api/docs`; the web app is built on it, other programs can use it too (by @HB9HIL)
+
+### Changed
+- The web interface is a SvelteKit app embedded in the binary instead of server-rendered pages: no reload after saving, a coverage page picks up its finished job by itself. Page, share and mail link URLs stay the same; only the admin panel is still rendered by the server (by @HB9HIL)
+- Rasters, reports and job events answer 401 without a session instead of redirecting to the login (by @HB9HIL)
+- `make dev` serves the app on http://localhost:5173, from the Vite dev server in Docker that proxies to the Go server (by @HB9HIL)
+
+### Removed
+- The Tailwind build of the server-rendered pages (`make css`, `internal/web/ui`, the CI job `lint-css`) (by @HB9HIL)
+
 ## [1.2.8] - 2026-10-25
 
 ### Fixed
