@@ -41,6 +41,19 @@ test('navigates with the tab bar', async ({ page }) => {
   await expect.poll(() => pathname(page)).toBe('/antennas')
 })
 
+test('keeps the tab bar above the map', async ({ page }) => {
+  await page.goto('/sites')
+  await expect(page.locator('.leaflet-container')).toBeVisible()
+  // scroll until the top of the map lies under the tab bar, then ask what the bar's bottom edge shows
+  const onTop = await page.evaluate(() => {
+    const map = document.querySelector('.map')
+    window.scrollTo(0, map.getBoundingClientRect().top + window.scrollY - window.innerHeight + 30)
+    const hit = document.elementFromPoint(20, window.innerHeight - 10)
+    return !!hit?.closest('nav[aria-label="Sections"]')
+  })
+  expect(onTop).toBe(true)
+})
+
 test('fits the screen without scrolling sideways', async ({ page }) => {
   for (const path of ['/sites', '/links', '/coverages', '/antennas', '/account', `/links/${linkID}`, `/coverages/${coverageID}`, '/sites/new']) {
     await page.goto(path)

@@ -142,6 +142,8 @@
 	min-height: 280px;
 	width: 100%;
 	border: 1px solid var(--cp-line);
+	/* keeps Leaflet's pane z-indexes (400 to 1000) below the tab bar, menus and dialogs */
+	isolation: isolate;
 }
 .leaflet-container {
 	font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
