@@ -12,6 +12,7 @@ import (
 
 const emptyPayloadHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
+// sign adds an AWS Signature Version 4 Authorization header to a bodyless request.
 func sign(req *http.Request, accessKey, secretKey, region string, now time.Time) {
 	amzDate := now.Format("20060102T150405Z")
 	date := now.Format("20060102")
@@ -59,6 +60,7 @@ func sign(req *http.Request, accessKey, secretKey, region string, now time.Time)
 	req.Header.Del("Host")
 }
 
+// canonicalQuery returns the query string sorted and encoded for signing.
 func canonicalQuery(req *http.Request) string {
 	q := req.URL.Query()
 	keys := make([]string, 0, len(q))
@@ -75,6 +77,7 @@ func canonicalQuery(req *http.Request) string {
 	return strings.Join(parts, "&")
 }
 
+// encodePath percent-encodes each segment of an object key and keeps the slashes.
 func encodePath(key string) string {
 	segs := strings.Split(key, "/")
 	for i, s := range segs {
@@ -83,6 +86,7 @@ func encodePath(key string) string {
 	return strings.Join(segs, "/")
 }
 
+// encodeSegment percent-encodes s except for unreserved characters (RFC 3986).
 func encodeSegment(s string) string {
 	const hexDigits = "0123456789ABCDEF"
 	var b strings.Builder
@@ -99,11 +103,13 @@ func encodeSegment(s string) string {
 	return b.String()
 }
 
+// hexSHA256 returns the SHA-256 of b as hex.
 func hexSHA256(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
 
+// hmacSHA256 returns the HMAC-SHA256 of data under key.
 func hmacSHA256(key []byte, data string) []byte {
 	h := hmac.New(sha256.New, key)
 	h.Write([]byte(data))

@@ -2,6 +2,8 @@ package itm
 
 import "math"
 
+// quickPfl derives the path parameters from the profile: horizon angles (rad) and distances (m), effective antenna
+// heights (m), delta_h (m), path length (m) and takeoff angles (rad).
 func quickPfl(pfl []float64, gamma_e float64, h__meter [2]float64, theta_hzn, d_hzn__meter, h_e__meter *[2]float64,
 	delta_h__meter, d__meter *float64, takeoff *[2]float64) {
 	var fit_tx, fit_rx, q float64

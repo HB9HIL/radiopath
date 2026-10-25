@@ -20,6 +20,7 @@ const usersUsage = `usage:
   radiopath users          list users
 Needs DATABASE_URL.`
 
+// userCommand runs useradd, userdel or users against the database and returns the process exit code.
 func userCommand(args []string) int {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
@@ -86,6 +87,7 @@ func userCommand(args []string) int {
 	return 0
 }
 
+// readPassword reads one line from a piped stdin, or prompts twice on a terminal and checks both match.
 func readPassword() (string, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		line, err := bufio.NewReader(os.Stdin).ReadString('\n')

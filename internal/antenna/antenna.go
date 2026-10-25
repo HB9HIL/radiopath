@@ -28,6 +28,8 @@ type Lobe struct {
 	H, V Pattern
 }
 
+// AttenuationDB returns the attenuation in dB at azimuth and elevation offsets (degrees) from boresight, the sum of both
+// patterns limited to the worst front-to-back; without a vertical pattern the horizontal one is used for both.
 func (l Lobe) AttenuationDB(azRel, elRel float64) float64 {
 	v := l.V
 	if len(v) != Steps {
@@ -36,6 +38,7 @@ func (l Lobe) AttenuationDB(azRel, elRel float64) float64 {
 	return math.Min(l.H.AttenuationDB(azRel)+v.AttenuationDB(elRel), math.Max(l.H.Front(), v.Front()))
 }
 
+// AttenuationDB returns the attenuation in dB at relDeg degrees from boresight, interpolated linearly; 0 for an invalid pattern.
 func (p Pattern) AttenuationDB(relDeg float64) float64 {
 	if len(p) != Steps || math.IsNaN(relDeg) {
 		return 0
@@ -49,6 +52,7 @@ func (p Pattern) AttenuationDB(relDeg float64) float64 {
 	return p[i]*(1-frac) + p[(i+1)%Steps]*frac
 }
 
+// Front returns the largest attenuation in dB of the pattern.
 func (p Pattern) Front() float64 {
 	worst := 0.0
 	for _, v := range p {
@@ -57,6 +61,7 @@ func (p Pattern) Front() float64 {
 	return worst
 }
 
+// ParseMSI reads an MSI Planet antenna file (at most 1 MiB) into horizontal and vertical patterns.
 func ParseMSI(r io.Reader) (Antenna, error) {
 	var a Antenna
 	var gainUnit string
@@ -154,6 +159,7 @@ func ParseMSI(r io.Reader) (Antenna, error) {
 	return a, nil
 }
 
+// resample interpolates angle/value pairs (degrees, dB) onto one value per degree and makes the best value the 0 dB reference.
 func resample(angles, values []float64) (Pattern, error) {
 	type sample struct{ ang, val float64 }
 	ss := make([]sample, 0, len(angles))
@@ -191,6 +197,8 @@ func resample(angles, values []float64) (Pattern, error) {
 	return out, nil
 }
 
+// Sector returns a synthetic pattern from the 3 dB beamwidth (degrees) and the front-to-back ratio (dB);
+// invalid values give an omnidirectional pattern.
 func Sector(beamwidthDeg, frontToBackDB float64) Pattern {
 	p := make(Pattern, Steps)
 	if beamwidthDeg <= 0 || beamwidthDeg >= 360 || frontToBackDB <= 0 {
@@ -206,6 +214,7 @@ func Sector(beamwidthDeg, frontToBackDB float64) Pattern {
 	return p
 }
 
+// SectorParams estimates the beamwidth (degrees) and front-to-back ratio (dB) of a pattern, the inverse of Sector.
 func SectorParams(p Pattern) (beamwidthDeg, frontToBackDB float64) {
 	fb := p.Front()
 	if len(p) != Steps || fb <= 0 {

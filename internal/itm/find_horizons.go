@@ -1,5 +1,7 @@
 package itm
 
+// findHorizons finds the horizon elevation angles (rad) and distances (m) seen from each terminal of the profile,
+// for effective earth radius a_e (m) and antenna heights h (m above ground) [TN101, Eq 6.15].
 func findHorizons(pfl []float64, a_e__meter float64, h__meter [2]float64, theta_hzn, d_hzn__meter *[2]float64) {
 	np := int(pfl[0])
 	xi := pfl[1]

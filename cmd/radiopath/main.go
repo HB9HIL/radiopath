@@ -59,6 +59,7 @@ type config struct {
 	baseURL       string
 }
 
+// loadConfig reads the RADIOPATH_* and DATABASE_URL environment into a config; it rejects registration without SMTP.
 func loadConfig() (config, error) {
 	c := config{
 		databaseURL:   os.Getenv("DATABASE_URL"),
@@ -155,6 +156,7 @@ func loadConfig() (config, error) {
 	return c, nil
 }
 
+// envBool parses key as true/false, falling back to def when unset.
 func envBool(key string, def bool) (bool, error) {
 	switch envOr(key, map[bool]string{true: "true", false: "false"}[def]) {
 	case "true":
@@ -165,6 +167,7 @@ func envBool(key string, def bool) (bool, error) {
 	return false, errors.New(key + " must be true or false")
 }
 
+// envOr returns the environment variable key, or def when it is unset or empty.
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -172,10 +175,12 @@ func envOr(key, def string) string {
 	return def
 }
 
+// newLogger returns a JSON slog logger on stderr at the configured level.
 func newLogger(c config) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: c.logLevel}))
 }
 
+// main runs a user subcommand when given arguments, otherwise the server until SIGINT/SIGTERM.
 func main() {
 	if len(os.Args) > 1 {
 		os.Exit(userCommand(os.Args[1:]))
@@ -196,6 +201,7 @@ func main() {
 	}
 }
 
+// run starts the store, workers, janitor, metrics and HTTP server, and shuts them down in order on cancel or listen error.
 func run(ctx context.Context, cfg config, log *slog.Logger) error {
 	log.Info("starting", "version", version, "workers", cfg.workers, "listen", cfg.listen, "metrics", cfg.metricsListen)
 	st, err := store.New(ctx, cfg.databaseURL)
@@ -314,6 +320,7 @@ func run(ctx context.Context, cfg config, log *slog.Logger) error {
 	return err
 }
 
+// janitor periodically removes expired sessions, rate limits, email tokens and unconfirmed users until ctx ends.
 func janitor(ctx context.Context, st *store.Store, log *slog.Logger) {
 	tick := time.NewTicker(janitorInterval)
 	defer tick.Stop()

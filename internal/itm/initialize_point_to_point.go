@@ -5,6 +5,8 @@ import (
 	"math/cmplx"
 )
 
+// initializePointToPoint returns the ground impedance Z_g, the effective earth curvature gamma_e (1/m) and the
+// surface refractivity N_s (N-units) for the average path height h_sys (m), frequency (MHz) and ground constants.
 func initializePointToPoint(f__mhz, h_sys__meter, N_0 float64, pol int, epsilon, sigma float64) (Z_g complex128, gamma_e, N_s float64) {
 	const gamma_a = 157e-9
 

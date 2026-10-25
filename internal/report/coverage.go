@@ -24,10 +24,12 @@ type Coverage struct {
 	Legend    plot.Legend
 }
 
+// CoveragePDF renders the coverage report as an A4 PDF.
 func CoveragePDF(in Coverage) ([]byte, error) {
 	return buildCoverage(in).bytes()
 }
 
+// buildCoverage lays out the coverage report: parameters, map with the raster overlay and the legend.
 func buildCoverage(in Coverage) *doc {
 	d := newDoc()
 	c := in.Coverage
@@ -90,6 +92,7 @@ func buildCoverage(in Coverage) *doc {
 	return d
 }
 
+// legend draws the colour legend and returns the next y; the default legend is used when l is empty.
 func (d *doc) legend(x, y float64, l plot.Legend) float64 {
 	if len(l) == 0 {
 		l = plot.DefaultLegend()

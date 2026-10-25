@@ -23,6 +23,7 @@ type Client struct {
 	now  func() time.Time
 }
 
+// http returns the configured HTTP client, or one with a 60 s timeout.
 func (c *Client) http() *http.Client {
 	if c.HTTP != nil {
 		return c.HTTP
@@ -30,6 +31,7 @@ func (c *Client) http() *http.Client {
 	return &http.Client{Timeout: 60 * time.Second}
 }
 
+// Get returns the body of the object key, signed with SigV4 when credentials are set; ErrNotFound on 404.
 func (c *Client) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	url := strings.TrimSuffix(c.Endpoint, "/") + "/" + c.Bucket + "/" + encodePath(key)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

@@ -2,6 +2,7 @@ package itm
 
 import "math"
 
+// knifeEdgeDiffraction returns the double knife-edge diffraction loss A_k in dB at distance d (m) [TN101, Eqn I.1].
 func knifeEdgeDiffraction(d__meter, f__mhz, a_e__meter, theta_los float64, d_hzn__meter [2]float64) float64 {
 	d_ML__meter := d_hzn__meter[0] + d_hzn__meter[1]
 	theta_nlos := d__meter/a_e__meter - theta_los // Angular distance of diffraction region [Algorithm, Eqn 4.12]

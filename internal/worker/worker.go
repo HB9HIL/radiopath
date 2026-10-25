@@ -30,6 +30,7 @@ type Worker struct {
 	Log      *slog.Logger
 }
 
+// Run claims and computes coverage jobs one at a time, polling when the queue is empty, until ctx is cancelled.
 func (w *Worker) Run(ctx context.Context) {
 	w.Log.Info("worker started", "name", w.Name)
 	for {
@@ -61,6 +62,7 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 }
 
+// run computes one claimed job and stores the result or failure; on shutdown it requeues the job instead.
 func (w *Worker) run(ctx context.Context, c store.CoverageWithSite) {
 	log := w.Log.With("coverage", c.ID, "name", c.Name)
 	log.Info("job started")

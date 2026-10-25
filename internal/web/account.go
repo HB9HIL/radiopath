@@ -35,6 +35,7 @@ var notices = map[string]string{
 	"password":   "Password changed. Other devices have been logged out.",
 }
 
+// notice returns the message for the ?msg= key of the request, or an empty string.
 func notice(r *http.Request) string { return notices[r.URL.Query().Get("msg")] }
 
 const (
@@ -57,6 +58,7 @@ ignore this mail, your password stays as it is.
 `
 )
 
+// validEmail returns s trimmed if it is a plain address (no display name, max 254 bytes), otherwise an empty string.
 func validEmail(s string) string {
 	s = strings.TrimSpace(s)
 	a, err := netmail.ParseAddress(s)
@@ -66,6 +68,7 @@ func validEmail(s string) string {
 	return s
 }
 
+// sendLink stores a one-time token for purpose and mails the matching confirm or reset link to email.
 func (s *Server) sendLink(r *http.Request, u store.User, email, purpose string) error {
 	token, id := newSessionToken()
 	ttl, path, subject, text := resetTTL, "/reset/", "Reset your Radiopath password", resetMail
@@ -78,6 +81,7 @@ func (s *Server) sendLink(r *http.Request, u store.User, email, purpose string) 
 	return s.Mail.Send(r.Context(), email, subject, fmt.Sprintf(text, u.Name, s.BaseURL+path+token))
 }
 
+// sendVerification mails a confirmation link, limited per user; sent is false when the limit was hit.
 func (s *Server) sendVerification(r *http.Request, u store.User, email string) (bool, error) {
 	n, err := s.Store.RateHit(r.Context(), fmt.Sprintf("verify:user:%d", u.ID), mailWindow)
 	if err != nil {
@@ -90,6 +94,7 @@ func (s *Server) sendVerification(r *http.Request, u store.User, email string) (
 	return true, s.sendLink(r, u, email, store.TokenVerify)
 }
 
+// resendVerification handles POST /verify/resend; it redirects the same way for unknown and verified names so accounts cannot be probed.
 func (s *Server) resendVerification(w http.ResponseWriter, r *http.Request) {
 	name := strings.ToLower(strings.TrimSpace(r.PostFormValue("name")))
 	u, _, err := s.Store.Credentials(r.Context(), name)
@@ -115,15 +120,18 @@ type accountData struct {
 	Errors   []string
 }
 
+// accountPage renders the account page with the given status and form errors.
 func (s *Server) accountPage(w http.ResponseWriter, r *http.Request, status int, errs []string) {
 	u := currentUser(r)
 	s.render(w, status, "account", accountData{base: s.base(r), Email: u.Email, Verified: u.Verified, Notice: notice(r), Errors: errs})
 }
 
+// account renders GET /account.
 func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 	s.accountPage(w, r, http.StatusOK, nil)
 }
 
+// accountEmail handles POST /account/email: mails a confirmation link to the new address, which only takes effect once opened.
 func (s *Server) accountEmail(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
 	email := validEmail(r.PostFormValue("email"))
@@ -148,6 +156,7 @@ func (s *Server) accountEmail(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/account?msg=sent", http.StatusSeeOther)
 }
 
+// accountPassword handles POST /account/password: checks the current password, sets the new one, logs out all other sessions and starts a fresh one.
 func (s *Server) accountPassword(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
 	_, hash, err := s.Store.Credentials(r.Context(), u.Name)
@@ -180,6 +189,7 @@ func (s *Server) accountPassword(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/account?msg=password", http.StatusSeeOther)
 }
 
+// setPassword stores the new hash for u and revokes all of its sessions.
 func (s *Server) setPassword(r *http.Request, u store.User, password string) error {
 	hash, err := HashPassword(password)
 	if err != nil {
@@ -198,10 +208,12 @@ type forgotData struct {
 	Errors []string
 }
 
+// forgotForm renders GET /forgot.
 func (s *Server) forgotForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "forgot", forgotData{Notice: notice(r)})
 }
 
+// forgot handles POST /forgot: rate limits per IP and address, mails a reset link if the address exists and answers the same either way.
 func (s *Server) forgot(w http.ResponseWriter, r *http.Request) {
 	email := validEmail(r.PostFormValue("email"))
 	if email == "" {
@@ -249,6 +261,7 @@ type resetData struct {
 
 const staleLink = "This link has expired or was already used. Request a new one."
 
+// resetForm renders GET /reset/{token}, or 410 when the token is expired or used.
 func (s *Server) resetForm(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	ok, err := s.Store.EmailTokenValid(r.Context(), sessionID(token), store.TokenReset)
@@ -263,6 +276,7 @@ func (s *Server) resetForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "reset", resetData{Token: token})
 }
 
+// reset handles POST /reset/{token}: validates the new password, consumes the token, sets the password and redirects to /login.
 func (s *Server) reset(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	password := r.PostFormValue("password")
@@ -291,6 +305,7 @@ func (s *Server) reset(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login?msg=reset", http.StatusSeeOther)
 }
 
+// verify handles GET /verify/{token}: consumes the token and saves the confirmed address; 410 for a stale link, 409 if another account owns the address.
 func (s *Server) verify(w http.ResponseWriter, r *http.Request) {
 	u, email, err := s.Store.ConsumeEmailToken(r.Context(), sessionID(r.PathValue("token")), store.TokenVerify)
 	if errors.Is(err, store.ErrNotFound) {

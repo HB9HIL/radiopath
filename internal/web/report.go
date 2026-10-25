@@ -11,6 +11,7 @@ import (
 	"github.com/radiopath/radiopath/internal/tiles"
 )
 
+// reportMap renders the static map for a PDF report; on failure it logs and returns nil so the report goes out without a map.
 func (s *Server) reportMap(r *http.Request, v tiles.View) []byte {
 	png, err := s.Tiles.Static(r.Context(), v)
 	if err != nil {
@@ -20,6 +21,7 @@ func (s *Server) reportMap(r *http.Request, v tiles.View) []byte {
 	return png
 }
 
+// rangeView returns the map view that frames the coverage's site and its full range circle.
 func rangeView(c store.CoverageWithSite) tiles.View {
 	dLat := c.RangeM / 111320
 	dLon := dLat / math.Cos(c.Site.Lat*math.Pi/180)
@@ -27,6 +29,7 @@ func rangeView(c store.CoverageWithSite) tiles.View {
 	return tiles.Fit(s, w, n, e, report.CoverageMapPx, report.CoverageMapPx, report.MapPad).Trim(s, w, n, e, report.MapPad)
 }
 
+// servePDF writes pdf inline as name.pdf, replacing non-ASCII, control and quote or slash characters in the file name; never cached.
 func servePDF(w http.ResponseWriter, name string, pdf []byte) {
 	name = strings.Map(func(c rune) rune {
 		if c > unicode.MaxASCII || c < ' ' || strings.ContainsRune(`"\/`, c) {

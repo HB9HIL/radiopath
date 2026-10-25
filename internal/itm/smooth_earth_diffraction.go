@@ -45,6 +45,7 @@ func smoothEarthDiffraction(d__meter, f__mhz, a_e__meter, theta_los float64, d_h
 	return G_x__db - F_x__db[0] - F_x__db[1] - 20 // [Algorithm, Eqn 4.20] & [Vogler 1964]
 }
 
+// heightFunction returns the height-gain function F(x) in dB for the normalised distance x (km) and K [Vogler 1964].
 func heightFunction(x__km, K float64) float64 {
 	var w, result float64
 

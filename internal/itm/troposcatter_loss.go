@@ -2,6 +2,7 @@ package itm
 
 import "math"
 
+// fFunction returns the scattering attenuation function F(theta*d) in dB for the product td (m).
 func fFunction(td float64) float64 {
 	a := [...]float64{133.4, 104.6, 71.8}
 	b := [...]float64{0.332e-3, 0.212e-3, 0.157e-3}
@@ -19,6 +20,8 @@ func fFunction(td float64) float64 {
 	return a[i] + b[i]*td + c[i]*math.Log10(td)
 }
 
+// troposcatterLoss returns the troposcatter loss in dB at distance d (m), or 1001 when the path is too short for scatter.
+// h0 carries the frequency gain H_0 between calls; pass a negative value to have it computed.
 func troposcatterLoss(d__meter float64, theta_hzn, d_hzn__meter, h_e__meter [2]float64, a_e__meter, N_s, f__mhz, theta_los float64, h0 *float64) float64 {
 	var H_0 float64
 

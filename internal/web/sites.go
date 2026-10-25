@@ -16,6 +16,7 @@ type siteFormData struct {
 	Errors []string
 }
 
+// siteValues returns the form field values of a site's coordinates and antenna height.
 func siteValues(st store.Site) map[string]string {
 	return map[string]string{
 		"lat":              strconv.FormatFloat(st.Lat, 'f', -1, 64),
@@ -24,6 +25,7 @@ func siteValues(st store.Site) map[string]string {
 	}
 }
 
+// parseSite reads and validates the site form.
 func parseSite(r *http.Request) (store.Site, *form) {
 	f := &form{r: r}
 	st := store.Site{
@@ -35,6 +37,7 @@ func parseSite(r *http.Request) (store.Site, *form) {
 	return st, f
 }
 
+// listSites renders the user's sites, with an optional error passed in the query string.
 func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 	sites, err := s.Store.ListSites(r.Context(), currentUser(r).ID)
 	if err != nil {
@@ -48,6 +51,7 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 	}{s.base(r), sites, r.URL.Query().Get("error")})
 }
 
+// newSite renders the empty site form, or a copy of the site given by the from parameter.
 func (s *Server) newSite(w http.ResponseWriter, r *http.Request) {
 	st := store.Site{AntennaHeightM: 10}
 	f := siteValues(st)
@@ -64,6 +68,7 @@ func (s *Server) newSite(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "site_form", siteFormData{base: s.base(r), Site: st, Form: f})
 }
 
+// createSite stores a new site and redirects to /sites; invalid input or the per-user site limit re-render the form with 422.
 func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
 	st, f := parseSite(r)
 	if len(f.Errors) > 0 {
@@ -84,6 +89,7 @@ func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/sites", http.StatusSeeOther)
 }
 
+// editSite renders the form for an existing site.
 func (s *Server) editSite(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -98,6 +104,7 @@ func (s *Server) editSite(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "site_form", siteFormData{base: s.base(r), Site: st, Form: siteValues(st)})
 }
 
+// updateSite saves an edited site and redirects to /sites, or re-renders the form with 422 on invalid input.
 func (s *Server) updateSite(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -117,6 +124,7 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/sites", http.StatusSeeOther)
 }
 
+// deleteSite deletes a site and redirects to /sites; a site still used by a link or coverage is kept and an error is shown.
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {

@@ -7,6 +7,8 @@ func curve(c1, c2, x1, x2, x3, d_e__meter float64) float64 {
 	return (c1 + c2/(1.0+math.Pow((d_e__meter-x2)/x3, 2))) * (math.Pow(d_e__meter/x1, 2)) / (1.0 + (math.Pow(d_e__meter/x1, 2)))
 }
 
+// variability returns the attenuation in dB for the requested time, location and situation percentages
+// relative to the median reference attenuation A_ref (dB), for the given climate and variability mode (curves per TN101v2 Eqn III.69 and III.70).
 func variability(time, location, situation float64, h_e__meter [2]float64, delta_h__meter, f__mhz, d__meter, A_ref__db float64,
 	climate, mdvar int, warnings *Warning) float64 {
 	// -> approximate to TN101v2 Eqn III.69 & III.70

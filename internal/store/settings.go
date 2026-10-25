@@ -7,6 +7,7 @@ import (
 
 const maintenanceKey = "maintenance"
 
+// Maintenance reports whether maintenance mode is on; false when never set.
 func (s *Store) Maintenance(ctx context.Context) (bool, error) {
 	var v string
 	err := s.pool.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, maintenanceKey).Scan(&v)
@@ -16,6 +17,7 @@ func (s *Store) Maintenance(ctx context.Context) (bool, error) {
 	return v == "on", mapErr(err)
 }
 
+// SetMaintenance turns maintenance mode on or off.
 func (s *Store) SetMaintenance(ctx context.Context, on bool) error {
 	v := "off"
 	if on {

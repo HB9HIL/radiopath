@@ -36,6 +36,7 @@ type base struct {
 	Admin bool
 }
 
+// base returns the template data shared by all logged-in pages.
 func (s *Server) base(r *http.Request) base { return base{User: currentUser(r).Name} }
 
 type Server struct {
@@ -54,6 +55,7 @@ type Server struct {
 	tmpl map[string]*template.Template
 }
 
+// Handler parses the templates and builds the full route tree: public, share, optional admin, registration and mail routes, and everything else behind requireAuth.
 func (s *Server) Handler() http.Handler {
 	funcs := template.FuncMap{
 		"divKm":        func(m float64) float64 { return m / 1000 },
@@ -186,6 +188,7 @@ func (s *Server) Handler() http.Handler {
 	return secureHeaders(instrument(root, mux, http.NewCrossOriginProtection().Handler(root)))
 }
 
+// secureHeaders adds the nosniff, frame and referrer headers to every response.
 func secureHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
@@ -196,6 +199,7 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// readyz answers GET /readyz with 200 only if the database, the DEM data and the tile cache are usable, otherwise 503 naming the failing part.
 func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2e9)
 	defer cancel()
@@ -230,6 +234,7 @@ var staticETags = func() map[string]string {
 	return etags
 }()
 
+// assetURL appends the content hash to a static path so browsers can cache it forever; unknown paths come back unchanged.
 func assetURL(path string) string {
 	etag, ok := staticETags[path]
 	if !ok {
@@ -238,6 +243,7 @@ func assetURL(path string) string {
 	return path + "?v=" + strings.Trim(etag, `"`)
 }
 
+// staticHandler serves the embedded static files with ETags, immutable caching for hashed URLs and 304 on a match.
 func staticHandler() http.Handler {
 	files := http.StripPrefix("/", http.FileServerFS(staticFS))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +266,7 @@ func staticHandler() http.Handler {
 	})
 }
 
+// render executes the named page template with the given status.
 func (s *Server) render(w http.ResponseWriter, status int, page string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
@@ -268,11 +275,13 @@ func (s *Server) render(w http.ResponseWriter, status int, page string, data any
 	}
 }
 
+// notFound renders the 404 page.
 func (s *Server) notFound(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	s.render(w, http.StatusNotFound, "notfound", base{})
 }
 
+// fail maps store.ErrNotFound to the 404 page and logs anything else, answering 500 without details.
 func (s *Server) fail(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -283,12 +292,15 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 	}
 }
 
+// escapeQuery URL-encodes v for use in a query string.
 func escapeQuery(v string) string { return url.QueryEscape(v) }
 
+// pathID parses the {id} path value.
 func pathID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(r.PathValue("id"), 10, 64)
 }
 
+// fromID parses the ?from= query value; ok is false unless it is a positive number.
 func fromID(r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
 	return id, err == nil && id > 0
@@ -301,8 +313,10 @@ type form struct {
 	Errors []string
 }
 
+// get returns the posted value for name.
 func (f *form) get(name string) string { return f.r.PostFormValue(name) }
 
+// num parses a required number within lo..hi; problems are collected in Errors and 0 or the out-of-range value is returned.
 func (f *form) num(name, label string, lo, hi float64) float64 {
 	v, err := strconv.ParseFloat(f.get(name), 64)
 	if err != nil {
@@ -315,6 +329,7 @@ func (f *form) num(name, label string, lo, hi float64) float64 {
 	return v
 }
 
+// optNum is num for an optional field; empty gives 0.
 func (f *form) optNum(name, label string, lo, hi float64) float64 {
 	if f.get(name) == "" {
 		return 0
@@ -322,6 +337,7 @@ func (f *form) optNum(name, label string, lo, hi float64) float64 {
 	return f.num(name, label, lo, hi)
 }
 
+// text returns a required value of at most maxTextLen characters, collecting an error otherwise.
 func (f *form) text(name, label string) string {
 	v := f.get(name)
 	if v == "" {
@@ -332,6 +348,7 @@ func (f *form) text(name, label string) string {
 	return v
 }
 
+// optID parses an optional ID; nil when empty or invalid (invalid also adds an error).
 func (f *form) optID(name, label string) *int64 {
 	v := f.get(name)
 	if v == "" {
@@ -345,6 +362,7 @@ func (f *form) optID(name, label string) *int64 {
 	return &id
 }
 
+// optNumP is num for an optional field; nil when empty.
 func (f *form) optNumP(name, label string, lo, hi float64) *float64 {
 	if f.get(name) == "" {
 		return nil
@@ -353,6 +371,7 @@ func (f *form) optNumP(name, label string, lo, hi float64) *float64 {
 	return &v
 }
 
+// optDeg parses an optional bearing in 0..360 and wraps 360 to 0; nil when empty.
 func (f *form) optDeg(name, label string) *float64 {
 	if f.get(name) == "" {
 		return nil
@@ -361,6 +380,7 @@ func (f *form) optDeg(name, label string) *float64 {
 	return &v
 }
 
+// id parses a required ID, collecting an error when invalid.
 func (f *form) id(name, label string) int64 {
 	v, err := strconv.ParseInt(f.get(name), 10, 64)
 	if err != nil {
@@ -369,6 +389,7 @@ func (f *form) id(name, label string) int64 {
 	return v
 }
 
+// values returns the posted fields as a flat map, e.g. to refill the form after errors.
 func (f *form) values() map[string]string {
 	out := make(map[string]string, len(f.r.PostForm))
 	for k := range f.r.PostForm {

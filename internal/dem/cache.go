@@ -25,6 +25,7 @@ type entry struct {
 	tile *tile
 }
 
+// newTileCache returns an LRU cache of at most maxTiles tiles, filled by load; kind labels the metrics.
 func newTileCache(kind string, maxTiles int, load func(string) (*tile, error)) *tileCache {
 	if maxTiles < 1 {
 		maxTiles = 1
@@ -33,6 +34,7 @@ func newTileCache(kind string, maxTiles int, load func(string) (*tile, error)) *
 		spacing: defaultSpacingM}
 }
 
+// get returns the named tile, loading it on a miss and evicting the least recently used one.
 func (c *tileCache) get(name string) (*tile, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -56,6 +58,7 @@ func (c *tileCache) get(name string) (*tile, error) {
 	return t, nil
 }
 
+// resolutionM returns the sample spacing in m of the tile loaded last.
 func (c *tileCache) resolutionM() float64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -66,8 +69,10 @@ type cachedSource struct {
 	c *tileCache
 }
 
+// ResolutionM returns the sample spacing in m, the default until a tile is loaded.
 func (s *cachedSource) ResolutionM() float64 { return s.c.resolutionM() }
 
+// Elevation returns the bilinearly interpolated terrain height in m at lat/lon in degrees.
 func (s *cachedSource) Elevation(lat, lon float64) (float64, error) {
 	if math.Abs(lat) > 90 || math.Abs(lon) > 180 {
 		return 0, fmt.Errorf("dem: invalid position %v,%v", lat, lon)

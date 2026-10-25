@@ -21,6 +21,7 @@ type jobEvent struct {
 	Error  string `json:"error,omitempty"`
 }
 
+// newJobEvent converts a job into a client event; Since is the start (running) or queue (queued) time as local HH:MM:SS.
 func newJobEvent(j store.Job) jobEvent {
 	e := jobEvent{State: j.State, Worker: j.Worker, Error: j.Error}
 	switch {
@@ -32,6 +33,7 @@ func newJobEvent(j store.Job) jobEvent {
 	return e
 }
 
+// coverageEvents streams a coverage job's state as server-sent events, sending on change and ending when the job is done, the client leaves or eventMaxLife passes.
 func (s *Server) coverageEvents(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {

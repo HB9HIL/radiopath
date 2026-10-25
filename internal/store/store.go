@@ -26,6 +26,7 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
+// New opens a connection pool for the given PostgreSQL URL.
 func New(ctx context.Context, url string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
@@ -34,8 +35,10 @@ func New(ctx context.Context, url string) (*Store, error) {
 	return &Store{pool: pool}, nil
 }
 
+// Close closes the connection pool.
 func (s *Store) Close() { s.pool.Close() }
 
+// Ping checks that the database is reachable.
 func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 type Stats struct {
@@ -43,6 +46,7 @@ type Stats struct {
 	Coverages                     map[string]int
 }
 
+// Stats returns table counts, active sessions and coverages per job state.
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	var st Stats
 	err := s.pool.QueryRow(ctx, `SELECT
@@ -71,6 +75,7 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	return st, rows.Err()
 }
 
+// mapErr translates no-rows, foreign-key and unique violations into ErrNotFound, ErrInUse and ErrExists; other errors pass through.
 func mapErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

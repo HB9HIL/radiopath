@@ -2,6 +2,8 @@ package itm
 
 import "math"
 
+// longleyRice returns the reference attenuation A_ref in dB and the dominant mode (line of sight, diffraction or
+// troposcatter) at distance d (m); it returns an error code, and sets warnings, for inputs outside the model limits.
 func longleyRice(theta_hzn [2]float64, f__mhz float64, Z_g complex128, d_hzn__meter, h_e__meter [2]float64,
 	gamma_e, N_s, delta_h__meter float64, h__meter [2]float64, d__meter float64, mode int,
 	A_ref__db *float64, warnings *Warning, propmode *Mode) int {

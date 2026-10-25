@@ -2,6 +2,7 @@ package itm
 
 import "math"
 
+// fresnelIntegral returns the knife-edge diffraction loss in dB for the Fresnel-Kirchhoff parameter squared, v2.
 func fresnelIntegral(v2 float64) float64 {
 	if v2 < 5.76 {
 		return 6.02 + 9.11*math.Sqrt(v2) - 1.27*v2 // [TN101v2, Eqn III.24b] and [ERL 79-ITS 67, Eqn 3.27a & 3.27b]

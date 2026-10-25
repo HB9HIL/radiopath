@@ -1,13 +1,21 @@
-name: Tests
+name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    tags: ["v*"]
   pull_request:
 
+# A newer push to the same branch cancels the running workflow; tag runs always finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -16,7 +24,24 @@ jobs:
           go-version-file: go.mod
       - run: test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }
       - run: go vet ./...
+      - run: go tool staticcheck ./...
       - run: go test -race ./...
+
+  # Known vulnerabilities in code paths we call; not a need of docker-image, so a new report does not block releases.
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  funcdoc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 scripts/funcdoc.py
 
   lint-css:
     runs-on: ubuntu-latest
@@ -26,53 +51,100 @@ jobs:
       - run: make css
       - run: cmp committed.css internal/web/static/app.css || { echo "app.css is stale, run 'make css' and commit"; exit 1; }
 
+  # These binaries are what e2e tests, what docker-image ships and what release attaches.
+  binary:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # git describe needs the full history with tags.
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make VERSION="$(git describe --tags --always)" bin/radiopath-linux-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: radiopath-linux-${{ matrix.arch }}
+          path: bin/radiopath-linux-${{ matrix.arch }}
+          retention-days: 1
+
   e2e:
     runs-on: ubuntu-latest
+    needs: binary
     steps:
       - uses: actions/checkout@v7
-      - run: make e2e
-      - uses: actions/upload-artifact@v7
-        if: failure()
+      - uses: actions/download-artifact@v8
         with:
-          name: e2e-failure
+          name: radiopath-linux-amd64
+          path: bin/
+      - run: chmod +x bin/radiopath-linux-amd64 && make e2e-run
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
           path: e2e/test-results/
+          retention-days: 7
 
-  staging-image:
-    needs: [test, lint-css, e2e]
-    if: github.event_name == 'push'
+  docker-image:
     runs-on: ubuntu-latest
-    concurrency: staging-image
+    needs: [go, funcdoc, lint-css, e2e, binary]
+    if: github.event_name == 'push'
     permissions:
+      contents: read
       packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
-      # Parallel pushes race; an older run finishing last would overwrite :staging.
-      - id: latest
-        run: |
-          git fetch origin main
-          if [ "$(git rev-parse origin/main)" = "$GITHUB_SHA" ]; then
-            echo "ok=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::main moved past $GITHUB_SHA, not overwriting :staging"
-          fi
-      - id: version
-        if: steps.latest.outputs.ok
-        run: echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+          pattern: radiopath-linux-*
+          path: bin/
+          merge-multiple: true
       - uses: docker/login-action@v4
-        if: steps.latest.outputs.ok
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v4
-        if: steps.latest.outputs.ok
-      - uses: docker/build-push-action@v7
-        if: steps.latest.outputs.ok
+      # main and tag runs of one commit share its image, whichever builds first; main moves :staging,
+      # a tag :X.Y.Z and :latest.
+      - run: |
+          chmod +x bin/radiopath-linux-*
+          sha="$IMAGE:${GITHUB_SHA::7}"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tags=(-t "$IMAGE:${GITHUB_REF_NAME#v}" -t "$IMAGE:latest")
+          else
+            tags=(-t "$IMAGE:staging")
+          fi
+          if docker buildx imagetools inspect "$sha" >/dev/null 2>&1; then
+            docker buildx imagetools create "${tags[@]}" "$sha"
+          else
+            docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci.Dockerfile -t "$sha" "${tags[@]}" --push bin
+          fi
+
+  # A GitHub release with the changelog section of the version and the binaries.
+  release:
+    runs-on: ubuntu-latest
+    needs: [docker-image]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
-          context: .
-          file: docker/Dockerfile
-          push: true
-          build-args: VERSION=${{ steps.version.outputs.version }}
-          tags: ghcr.io/${{ github.repository }}:staging
+          pattern: radiopath-linux-*
+          path: dist/
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v h="## [$version]" 'index($0, "## [") == 1 { p = index($0, h) == 1; next } p' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "::error::No changelog section found for version $version"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md dist/*

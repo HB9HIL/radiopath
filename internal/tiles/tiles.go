@@ -43,6 +43,7 @@ type RedisCache struct {
 	c *redis.Client
 }
 
+// NewRedisCache returns a Redis-backed cache for the redis:// URL.
 func NewRedisCache(url string) (*RedisCache, error) {
 	opt, err := redis.ParseURL(url)
 	if err != nil {
@@ -51,6 +52,7 @@ func NewRedisCache(url string) (*RedisCache, error) {
 	return &RedisCache{c: redis.NewClient(opt)}, nil
 }
 
+// Get returns the cached value, or nil when the key is missing.
 func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, error) {
 	b, err := r.c.Get(ctx, key).Bytes()
 	if errors.Is(err, redis.Nil) {
@@ -59,10 +61,12 @@ func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, error) {
 	return b, err
 }
 
+// Set stores val under key for ttl.
 func (r *RedisCache) Set(ctx context.Context, key string, val []byte, ttl time.Duration) error {
 	return r.c.Set(ctx, key, val, ttl).Err()
 }
 
+// Incr increments the counter at key and returns it; the first increment starts the ttl.
 func (r *RedisCache) Incr(ctx context.Context, key string, ttl time.Duration) (int64, error) {
 	n, err := r.c.Incr(ctx, key).Result()
 	if err == nil && n == 1 {
@@ -71,8 +75,10 @@ func (r *RedisCache) Incr(ctx context.Context, key string, ttl time.Duration) (i
 	return n, err
 }
 
+// Ping checks that Redis answers.
 func (r *RedisCache) Ping(ctx context.Context) error { return r.c.Ping(ctx).Err() }
 
+// Close closes the Redis connection.
 func (r *RedisCache) Close() error { return r.c.Close() }
 
 type Proxy struct {
@@ -92,6 +98,7 @@ const missWindow = time.Minute
 
 var errLimited = errors.New("tile miss budget exhausted")
 
+// client returns the configured HTTP client, or one with an 8 s timeout.
 func (p *Proxy) client() *http.Client {
 	if p.Client != nil {
 		return p.Client
@@ -99,6 +106,7 @@ func (p *Proxy) client() *http.Client {
 	return &http.Client{Timeout: 8 * time.Second}
 }
 
+// key returns the cache key of a tile, prefixed with a hash of the upstream URL.
 func (p *Proxy) key(z, x, y int) string {
 	if p.prefix == "" {
 		sum := sha1.Sum([]byte(p.Upstream))
@@ -107,6 +115,7 @@ func (p *Proxy) key(z, x, y int) string {
 	return fmt.Sprintf("%s%d/%d/%d", p.prefix, z, x, y)
 }
 
+// upstreamURL fills the {z}, {x}, {y}, {s} and {r} placeholders of the upstream template.
 func (p *Proxy) upstreamURL(z, x, y int) string {
 	r := strings.NewReplacer(
 		"{z}", strconv.Itoa(z), "{x}", strconv.Itoa(x), "{y}", strconv.Itoa(y),
@@ -114,6 +123,7 @@ func (p *Proxy) upstreamURL(z, x, y int) string {
 	return r.Replace(p.Upstream)
 }
 
+// Ready reports whether the cache answers; always true without a cache.
 func (p *Proxy) Ready(ctx context.Context) error {
 	if p.Cache == nil {
 		return nil
@@ -121,6 +131,7 @@ func (p *Proxy) Ready(ctx context.Context) error {
 	return p.Cache.Ping(ctx)
 }
 
+// ServeHTTP serves the tile z/x/y.png from the cache or upstream; invalid coordinates give 404, an exhausted miss budget 429.
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	yPng, ok := strings.CutSuffix(r.PathValue("y"), ".png")
 	z, errZ := strconv.Atoi(r.PathValue("z"))
@@ -149,6 +160,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.write(w, r, png, status)
 }
 
+// clientIP returns the client address for rate limiting, empty when no resolver is set.
 func (p *Proxy) clientIP(r *http.Request) string {
 	if p.ClientIP == nil {
 		return ""
@@ -156,6 +168,7 @@ func (p *Proxy) clientIP(r *http.Request) string {
 	return p.ClientIP(r)
 }
 
+// allow counts a cache miss for ip and reports whether it is within the per-minute budget; it fails open.
 func (p *Proxy) allow(ctx context.Context, ip string) bool {
 	if p.MissesPerIP <= 0 || p.Cache == nil || ip == "" {
 		return true
@@ -168,6 +181,7 @@ func (p *Proxy) allow(ctx context.Context, ip string) bool {
 	return n <= int64(p.MissesPerIP)
 }
 
+// tile returns the PNG and its cache status (HIT or MISS), fetching and caching it after a miss within budget.
 func (p *Proxy) tile(ctx context.Context, ip string, z, x, y int) ([]byte, string, error) {
 	key := p.key(z, x, y)
 	if p.Cache != nil {
@@ -201,6 +215,7 @@ func (p *Proxy) tile(ctx context.Context, ip string, z, x, y int) ([]byte, strin
 	return png, "MISS", nil
 }
 
+// fetch downloads a tile from upstream; it must be a PNG of at most 2 MiB.
 func (p *Proxy) fetch(ctx context.Context, z, x, y int) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.upstreamURL(z, x, y), nil)
 	if err != nil {
@@ -228,6 +243,7 @@ func (p *Proxy) fetch(ctx context.Context, z, x, y int) ([]byte, error) {
 	return body, nil
 }
 
+// write sends the PNG with cache headers, or 304 when the ETag matches.
 func (p *Proxy) write(w http.ResponseWriter, r *http.Request, png []byte, status string) {
 	etag := ETag(png)
 	h := w.Header()
@@ -242,6 +258,7 @@ func (p *Proxy) write(w http.ResponseWriter, r *http.Request, png []byte, status
 	w.Write(png)
 }
 
+// ETag returns a strong ETag for b from its SHA-256.
 func ETag(b []byte) string {
 	sum := sha256.Sum256(b)
 	return `"` + hex.EncodeToString(sum[:8]) + `"`

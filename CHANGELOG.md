@@ -7,10 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `make dev` starts the local stack (PostgreSQL, Valkey, Mailpit, stylesheet watcher) in Docker and the server in the foreground, with a dev user and terrain from radiopath/testfiles; `make run`, `make db-up` and `make db-down` are gone. Node only runs in Docker, the host needs Go and Docker (by @HB9HIL)
+- One CI workflow instead of two: the binaries are built once and reused for e2e, the image and the release; new checks staticcheck, govulncheck and a doc comment on every function. Images are also tagged with the commit (`:<sha>`) (by @HB9HIL)
+
+### Refactored
+- Using Playwright for e2e testing instead of Cypress, every service in its own container, on real terrain and canopy (by @HB9HIL)
+
+### Chore
+- Update to Go 1.27 (by @HB9HIL)
+- Helm chart documentation moved to radiopath/helmchart (by @HB9HIL)
+- Doc comments for all functions (by @HB9HIL)
+
+## [1.2.6] - 2026-10-14
+
 ### Chore
 - Updated renovate rules to pick up all necessary versions (by @HB9HIL)
 - Dependency Updates (by @renovate)
-- Update to Go 1.27 (by @HB9HIL)
 
 ## [1.2.5] - 2026-10-14
 

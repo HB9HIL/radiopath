@@ -4,6 +4,7 @@ import "math"
 
 const maxMergePixels = 9_000_000
 
+// Merge combines results onto one grid covering all bounds, keeping the best margin per pixel; invalid results are skipped.
 func Merge(rs []Result) Result {
 	var in []Result
 	for _, r := range rs {

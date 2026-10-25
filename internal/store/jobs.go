@@ -21,6 +21,7 @@ type Job struct {
 	Error     string
 }
 
+// EnqueueCoverage queues the owner's coverage job; already queued or running is a no-op, ErrQuota at MaxJobsPerUser active jobs, ErrNotFound when not owned.
 func (s *Store) EnqueueCoverage(ctx context.Context, owner, id int64) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE coverages SET job_state = $3, job_queued_at = now(), job_error = NULL, job_worker = NULL
 		WHERE owner_id = $1 AND id = $2 AND job_state NOT IN ($3, $4)
@@ -41,6 +42,7 @@ func (s *Store) EnqueueCoverage(ctx context.Context, owner, id int64) error {
 	return nil
 }
 
+// ClaimCoverageJob atomically takes the oldest queued job (or a running one older than stale) with SKIP LOCKED and marks it running; ErrNotFound when none.
 func (s *Store) ClaimCoverageJob(ctx context.Context, worker string, stale time.Duration) (CoverageWithSite, error) {
 	var owner, id int64
 	err := s.pool.QueryRow(ctx, `UPDATE coverages SET job_state = $1, job_started_at = now(), job_worker = $2
@@ -55,6 +57,7 @@ func (s *Store) ClaimCoverageJob(ctx context.Context, worker string, stale time.
 	return s.GetCoverage(ctx, owner, id)
 }
 
+// FinishCoverageJob stores the result image, bounds, duration and note and marks the job done; ErrNotFound for an unknown id.
 func (s *Store) FinishCoverageJob(ctx context.Context, id int64, png, margin []byte, b Bounds, elapsed time.Duration, note string) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE coverages SET result_png = $2, result_margin = $10, result_north = $3, result_south = $4,
 		result_east = $5, result_west = $6, computed_at = now(), compute_ms = $7, result_note = NULLIF($8, ''),
@@ -69,16 +72,19 @@ func (s *Store) FinishCoverageJob(ctx context.Context, id int64, png, margin []b
 	return nil
 }
 
+// FailCoverageJob marks the job failed with msg.
 func (s *Store) FailCoverageJob(ctx context.Context, id int64, msg string) error {
 	_, err := s.pool.Exec(ctx, `UPDATE coverages SET job_state = $2, job_error = $3 WHERE id = $1`, id, JobFailed, msg)
 	return err
 }
 
+// RequeueCoverageJob puts a running job back to queued, e.g. on shutdown.
 func (s *Store) RequeueCoverageJob(ctx context.Context, id int64) error {
 	_, err := s.pool.Exec(ctx, `UPDATE coverages SET job_state = $2, job_worker = NULL WHERE id = $1 AND job_state = $3`, id, JobQueued, JobRunning)
 	return err
 }
 
+// CoverageJob returns the job state of the owner's coverage; ErrNotFound when not owned.
 func (s *Store) CoverageJob(ctx context.Context, owner, id int64) (Job, error) {
 	var j Job
 	var worker, jobErr *string

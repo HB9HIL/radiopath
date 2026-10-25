@@ -4,6 +4,7 @@ export $(shell sed -E 's/^[[:space:]]*\#.*//; s/=.*//' .env)
 endif
 
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null)
+ARCH := $(shell docker version -f '{{.Server.Arch}}' 2>/dev/null)
 COMPOSE := docker compose -f docker/compose.yaml
 # Node runs in the compose service of the same name, so the host needs only Go and Docker.
 NODE_RUN := $(COMPOSE) run --rm --no-deps -T --user $$(id -u):$$(id -g)
@@ -12,7 +13,7 @@ TAILWIND := npx tailwindcss -i internal/web/ui/app.css -o internal/web/static/ap
 # The image follows @playwright/test in e2e/package.json, the one place Renovate updates.
 PLAYWRIGHT_IMAGE := mcr.microsoft.com/playwright:v$(shell sed -n 's/.*"@playwright\/test": "\([^"]*\)".*/\1/p' e2e/package.json)-noble
 
-.PHONY: dev test vet build docker css e2e
+.PHONY: dev test vet build docker css e2e e2e-run FORCE
 
 .env:
 	cp .env.example .env
@@ -53,8 +54,16 @@ node_modules: package-lock.json
 css: node_modules
 	$(NODE) $(TAILWIND) --minify
 
-# Playwright specs against the real image, every service in its own container on the compose network.
-e2e: tmp/testfiles
+# Static Linux binaries, packed by docker/ci.Dockerfile into the e2e and the release image.
+bin/radiopath-linux-%: FORCE
+	CGO_ENABLED=0 GOOS=linux GOARCH=$* go build -trimpath -ldflags="-s -w -X main.version=$(VERSION)" -o $@ ./cmd/radiopath
+
+# Builds the binary for the Docker host and runs the Playwright specs against the image packing it.
+e2e: bin/radiopath-linux-$(ARCH) e2e-run
+
+# The specs against bin/radiopath-linux-* as it is; CI runs this with the binary of its binary job.
+# Every service in its own container on the compose network.
+e2e-run: tmp/testfiles
 	$(COMPOSE) --profile e2e up --build --detach --wait --force-recreate e2e-app
 	rm -rf e2e/test-results
 	docker run --rm --network radiopath_default --ipc=host --user $$(id -u):$$(id -g) -e HOME=/tmp -e CI \

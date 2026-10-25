@@ -5,6 +5,8 @@ import (
 	"sort"
 )
 
+// computeDeltaH returns the terrain irregularity parameter delta_h in m between d_start and d_end (m) of the profile,
+// from the 10%-90% spread of the terrain about a least-squares line, scaled to an infinite path [ERL 79-ITS 67, Eqn 3].
 func computeDeltaH(pfl []float64, d_start__meter, d_end__meter float64) float64 {
 	np := int(pfl[0])
 	x_start := d_start__meter / pfl[1]

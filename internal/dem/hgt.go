@@ -28,6 +28,7 @@ type tile struct {
 	f    format
 }
 
+// tileName returns the name of the 1 degree tile containing lat/lon, such as N47E009.
 func tileName(lat, lon float64) string {
 	la, lo := int(math.Floor(lat)), int(math.Floor(lon))
 	ns, ew := "N", "E"
@@ -40,6 +41,7 @@ func tileName(lat, lon float64) string {
 	return fmt.Sprintf("%s%02d%s%03d", ns, la, ew, lo)
 }
 
+// parseTile wraps raw samples as a tile; the data must be a square grid.
 func parseTile(raw []byte, name string, f format) (*tile, error) {
 	n := len(raw) / f.size
 	side := int(math.Sqrt(float64(n)))
@@ -49,8 +51,10 @@ func parseTile(raw []byte, name string, f format) (*tile, error) {
 	return &tile{side: side, raw: raw, f: f}, nil
 }
 
+// spacingM returns the sample spacing in m.
 func (t *tile) spacingM() float64 { return metersPerDegree / float64(t.side-1) }
 
+// at returns the sample at row and column; false marks a void.
 func (t *tile) at(row, col int) (float64, bool) {
 	i := (row*t.side + col) * t.f.size
 	if t.f.size == 1 {
@@ -60,6 +64,7 @@ func (t *tile) at(row, col int) (float64, bool) {
 	return float64(v), v != void
 }
 
+// sample returns the bilinearly interpolated value at lat/lon in degrees; ErrVoid when a corner sample is void.
 func (t *tile) sample(lat, lon float64) (float64, error) {
 	n := float64(t.side - 1)
 	row := (math.Floor(lat) + 1 - lat) * n

@@ -2,6 +2,8 @@ package itm
 
 import "math"
 
+// lineOfSightLoss returns the two-ray line-of-sight loss A_los in dB at distance d (m), blended with the diffraction line
+// (slope M_d, intercept A_d0) by terrain roughness [Algorithm, Eqn 4.46-4.50].
 func lineOfSightLoss(d__meter float64, h_e__meter [2]float64, Z_g complex128, delta_h__meter, M_d, A_d0, d_sML__meter, f__mhz float64) float64 {
 	delta_h_d__meter := terrainRoughness(d__meter, delta_h__meter)
 

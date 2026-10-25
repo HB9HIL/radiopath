@@ -1,5 +1,6 @@
 package itm
 
+// validateInputs checks the input ranges, setting warning flags near the limits, and returns an error code or success.
 func validateInputs(h_tx__meter, h_rx__meter float64, climate int, time, location, situation, N_0, f__mhz float64,
 	pol int, epsilon, sigma float64, mdvar int, warnings *Warning) int {
 	if h_tx__meter < 1.0 || h_tx__meter > 1000.0 {

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// RateHit counts a hit for key in a fixed window that restarts once it is older than window; it returns the new count.
 func (s *Store) RateHit(ctx context.Context, key string, window time.Duration) (int, error) {
 	var count int
 	err := s.pool.QueryRow(ctx, `INSERT INTO rate_limits (key, count, window_start) VALUES ($1, 1, now())
@@ -15,6 +16,7 @@ func (s *Store) RateHit(ctx context.Context, key string, window time.Duration) (
 	return count, err
 }
 
+// RateCount returns the hits for key in the current window without counting, 0 when expired or unknown.
 func (s *Store) RateCount(ctx context.Context, key string, window time.Duration) (int, error) {
 	var count int
 	err := s.pool.QueryRow(ctx, `SELECT COALESCE((SELECT count FROM rate_limits
@@ -22,6 +24,7 @@ func (s *Store) RateCount(ctx context.Context, key string, window time.Duration)
 	return count, err
 }
 
+// DeleteOldRateLimits removes entries whose window started more than a day ago.
 func (s *Store) DeleteOldRateLimits(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM rate_limits WHERE window_start < now() - interval '1 day'`)
 	return err

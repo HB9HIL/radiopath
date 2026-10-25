@@ -61,6 +61,7 @@ var codeErrors = map[int]error{
 	error__SURFACE_REFRACTIVITY_LARGE: ErrSurfaceRefractivityLarge,
 }
 
+// codeError maps an internal ITM return code to its exported error.
 func codeError(code int) error {
 	if err, ok := codeErrors[code]; ok {
 		return err
@@ -109,6 +110,7 @@ var warningText = []struct {
 	{WarnSurfaceRefractivity, "computed surface refractivity is small - care must be taken with result"},
 }
 
+// Messages returns the text of every warning flag set in w.
 func (w Warning) Messages() []string {
 	var out []string
 	for _, wt := range warningText {

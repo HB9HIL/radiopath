@@ -29,6 +29,7 @@ type legendData struct {
 
 const blankColor = "#9ca3af"
 
+// legendViews turns a legend into template data: the colour bins and a fixed set of MaxBins form rows, unused ones blank.
 func legendViews(l plot.Legend) legendData {
 	d := legendData{Floor: l.Floor(), LegendRows: make([]legendRow, plot.MaxBins)}
 	for i, b := range l {
@@ -44,8 +45,10 @@ func legendViews(l plot.Legend) legendData {
 	return d
 }
 
+// legendOf returns the coverage's custom legend, or the default when it has none.
 func legendOf(c store.Coverage) plot.Legend { return plot.LegendOr(c.LegendDB, c.LegendColors) }
 
+// encodeLegend serialises the custom legend as "min:color,..." for the form; empty when the default is in use.
 func encodeLegend(c store.Coverage) string {
 	if len(c.LegendDB) == 0 {
 		return ""
@@ -57,6 +60,7 @@ func encodeLegend(c store.Coverage) string {
 	return strings.Join(parts, ",")
 }
 
+// decodeLegend parses the "min:color,..." form value and validates it, returning normalised thresholds and hex colours; empty input means the default.
 func decodeLegend(v string) (mins []float64, colors []string, err error) {
 	if strings.TrimSpace(v) == "" {
 		return nil, nil, nil
@@ -79,6 +83,7 @@ func decodeLegend(v string) (mins []float64, colors []string, err error) {
 	return l.Mins(), l.Hex(), nil
 }
 
+// setCoverageLegend handles POST /coverages/{id}/legend: stores the posted thresholds and colours, or resets to the default; input errors go back as ?error=.
 func (s *Server) setCoverageLegend(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -116,6 +121,7 @@ func (s *Server) setCoverageLegend(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
+// renderRaster returns the stored PNG, or re-renders it from the margin data with the current legend when one is stored.
 func renderRaster(ra store.Raster) ([]byte, error) {
 	if ra.Margin == nil {
 		return ra.PNG, nil

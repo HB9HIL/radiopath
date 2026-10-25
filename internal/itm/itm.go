@@ -47,6 +47,7 @@ const (
 	ModeTroposcatter Mode = 3
 )
 
+// String returns the propagation mode as lower-case text.
 func (m Mode) String() string {
 	switch m {
 	case ModeLineOfSight:
@@ -87,6 +88,7 @@ type Result struct {
 	DistanceKm float64
 }
 
+// PointToPoint runs ITM point-to-point mode on terrain elevations (m) sampled every stepM metres from TX to RX.
 func PointToPoint(elev []float64, stepM float64, p Params) (Result, error) {
 	if len(elev) < 2 {
 		return Result{}, fmt.Errorf("itm: profile needs at least 2 points, got %d", len(elev))
@@ -101,6 +103,7 @@ func PointToPoint(elev []float64, stepM float64, p Params) (Result, error) {
 	return pointToPoint(pfl, p)
 }
 
+// pointToPoint runs ITM on a packed profile pfl (pfl[0] intervals, pfl[1] step in m, then elevations in m).
 func pointToPoint(pfl []float64, p Params) (Result, error) {
 	var r Result
 	var warnings Warning
@@ -155,6 +158,7 @@ func pointToPoint(pfl []float64, p Params) (Result, error) {
 	return r, nil
 }
 
+// fdim returns x-y when positive and 0 otherwise, like C fdim.
 func fdim(x, y float64) float64 {
 	if x > y {
 		return x - y

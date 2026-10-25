@@ -18,12 +18,14 @@ type View struct {
 	W, H   int
 }
 
+// worldPixel returns the Web Mercator pixel position of lat/lon in degrees at the zoom level.
 func worldPixel(lat, lon float64, zoom int) (x, y float64) {
 	n := float64(tileSize) * math.Exp2(float64(zoom))
 	phi := lat * math.Pi / 180
 	return (lon + 180) / 360 * n, (1 - math.Log(math.Tan(phi)+1/math.Cos(phi))/math.Pi) / 2 * n
 }
 
+// Fit returns the view of w x h pixels at the highest zoom that holds the bounds (degrees) with pad pixels of margin, centred on them.
 func Fit(south, west, north, east float64, w, h, pad int) View {
 	for z := maxZoom; ; z-- {
 		x1, y1 := worldPixel(north, west, z)
@@ -34,11 +36,13 @@ func Fit(south, west, north, east float64, w, h, pad int) View {
 	}
 }
 
+// Pixel returns the position of lat/lon in degrees within the view, in pixels.
 func (v View) Pixel(lat, lon float64) (x, y float64) {
 	x, y = worldPixel(lat, lon, v.Zoom)
 	return x - v.X0, y - v.Y0
 }
 
+// Trim returns a smaller view of the same zoom around the bounds (degrees) with pad pixels of margin.
 func (v View) Trim(south, west, north, east float64, pad int) View {
 	x1, y1 := v.Pixel(north, west)
 	x2, y2 := v.Pixel(south, east)
@@ -47,10 +51,12 @@ func (v View) Trim(south, west, north, east float64, pad int) View {
 	return View{Zoom: v.Zoom, X0: v.X0 + (x1+x2)/2 - float64(w)/2, Y0: v.Y0 + (y1+y2)/2 - float64(h)/2, W: w, H: h}
 }
 
+// MetresPerPixel returns the ground resolution in m per pixel at latitude lat (degrees).
 func (v View) MetresPerPixel(lat float64) float64 {
 	return 2 * math.Pi * 6378137 * math.Cos(lat*math.Pi/180) / (tileSize * math.Exp2(float64(v.Zoom)))
 }
 
+// Static stitches the map tiles covering the view into one PNG.
 func (p *Proxy) Static(ctx context.Context, v View) ([]byte, error) {
 	img := image.NewRGBA(image.Rect(0, 0, v.W, v.H))
 	n := 1 << v.Zoom

@@ -2,6 +2,8 @@ package itm
 
 import "math"
 
+// diffractionLoss returns the diffraction attenuation A_d in dB at distance d (m): a weighted mix of the smooth-earth
+// and knife-edge losses plus the terrain roughness term A_fo [ERL 79-ITS 67, Eqn 3.23 and 3.38c].
 func diffractionLoss(d__meter float64, d_hzn__meter, h_e__meter [2]float64, Z_g complex128, a_e__meter, delta_h__meter float64,
 	h__meter [2]float64, mode int, theta_los, d_sML__meter, f__mhz float64) float64 {
 	A_k__db := knifeEdgeDiffraction(d__meter, f__mhz, a_e__meter, theta_los, d_hzn__meter)

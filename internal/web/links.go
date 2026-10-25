@@ -45,6 +45,7 @@ type linkFormData struct {
 	Errors   []string
 }
 
+// linkValues returns the form field values of a link; optional values stay empty when unset.
 func linkValues(l store.Link) map[string]string {
 	f := func(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 	return map[string]string{
@@ -64,6 +65,7 @@ func linkValues(l store.Link) map[string]string {
 	}
 }
 
+// parseLink reads and validates the link form; site A and B must differ.
 func parseLink(r *http.Request) (store.Link, *form) {
 	f := &form{r: r}
 	l := store.Link{
@@ -93,6 +95,7 @@ func parseLink(r *http.Request) (store.Link, *form) {
 	return l, f
 }
 
+// linkForm renders the link form with the user's sites and antennas.
 func (s *Server) linkForm(w http.ResponseWriter, r *http.Request, status int, d linkFormData) {
 	sites, err := s.Store.ListSites(r.Context(), currentUser(r).ID)
 	if err != nil {
@@ -109,6 +112,7 @@ func (s *Server) linkForm(w http.ResponseWriter, r *http.Request, status int, d 
 	s.render(w, status, "link_form", d)
 }
 
+// listLinks renders the user's links together with their number of sites.
 func (s *Server) listLinks(w http.ResponseWriter, r *http.Request) {
 	links, err := s.Store.ListLinks(r.Context(), currentUser(r).ID)
 	if err != nil {
@@ -127,6 +131,7 @@ func (s *Server) listLinks(w http.ResponseWriter, r *http.Request) {
 	}{s.base(r), links, sites})
 }
 
+// newLink renders the link form with defaults, or a copy of the link given by the from parameter.
 func (s *Server) newLink(w http.ResponseWriter, r *http.Request) {
 	l := store.Link{FreqMHz: 145, TxPowerDBm: 40, RxSensitivityDBm: -120, Polarization: 1}
 	if from, ok := fromID(r); ok {
@@ -141,6 +146,7 @@ func (s *Server) newLink(w http.ResponseWriter, r *http.Request) {
 	s.linkForm(w, r, http.StatusOK, linkFormData{Link: l, Form: linkValues(l)})
 }
 
+// createLink stores a new link and redirects to its page, or re-renders the form with 422 on invalid input.
 func (s *Server) createLink(w http.ResponseWriter, r *http.Request) {
 	l, f := parseLink(r)
 	if len(f.Errors) > 0 {
@@ -157,6 +163,7 @@ func (s *Server) createLink(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/links/%d", id), http.StatusSeeOther)
 }
 
+// editLink renders the form for an existing link.
 func (s *Server) editLink(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -171,6 +178,7 @@ func (s *Server) editLink(w http.ResponseWriter, r *http.Request) {
 	s.linkForm(w, r, http.StatusOK, linkFormData{Link: l.Link, Form: linkValues(l.Link)})
 }
 
+// updateLink saves an edited link and redirects to its page, or re-renders the form with 422 on invalid input.
 func (s *Server) updateLink(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -191,6 +199,7 @@ func (s *Server) updateLink(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/links/%d", id), http.StatusSeeOther)
 }
 
+// deleteLink deletes a link and redirects to /links.
 func (s *Server) deleteLink(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -204,6 +213,7 @@ func (s *Server) deleteLink(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/links", http.StatusSeeOther)
 }
 
+// showLink renders the link page with its analysis.
 func (s *Server) showLink(w http.ResponseWriter, r *http.Request) {
 	data, ok := s.linkView(w, r)
 	if !ok {
@@ -212,6 +222,7 @@ func (s *Server) showLink(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "link_detail", data)
 }
 
+// linkReport serves the owner's link analysis as a PDF report.
 func (s *Server) linkReport(w http.ResponseWriter, r *http.Request) {
 	data, ok := s.linkView(w, r)
 	if !ok {
@@ -220,6 +231,7 @@ func (s *Server) linkReport(w http.ResponseWriter, r *http.Request) {
 	s.sendLinkReport(w, r, data)
 }
 
+// sendLinkReport renders the PDF with a map fitted to both sites and writes it to the response.
 func (s *Server) sendLinkReport(w http.ResponseWriter, r *http.Request, data linkDetailData) {
 	a, b := data.Link.SiteA, data.Link.SiteB
 	in := report.Link{
@@ -238,6 +250,7 @@ func (s *Server) sendLinkReport(w http.ResponseWriter, r *http.Request, data lin
 	servePDF(w, data.Link.Name, pdf)
 }
 
+// linkView loads the requested link and its analysis; on failure it has already written the response and returns false.
 func (s *Server) linkView(w http.ResponseWriter, r *http.Request) (linkDetailData, bool) {
 	id, err := pathID(r)
 	if err != nil {
@@ -258,6 +271,7 @@ func (s *Server) linkView(w http.ResponseWriter, r *http.Request) (linkDetailDat
 	return data, true
 }
 
+// linkAnalysis runs the path analysis for l; a failed analysis is logged and returned in Error instead of Result.
 func (s *Server) linkAnalysis(r *http.Request, l store.LinkWithSites) linkDetailData {
 	data := linkDetailData{Link: l, Reliability: link.ReliabilityPct}
 	data.TxAntenna, data.RxAntenna = s.antennaName(r, l.OwnerID, l.TxAntennaID), s.antennaName(r, l.OwnerID, l.RxAntennaID)
@@ -292,6 +306,7 @@ func (s *Server) linkAnalysis(r *http.Request, l store.LinkWithSites) linkDetail
 	return data
 }
 
+// applyAntennaGains replaces the entered TX and RX gains by those of the selected antennas.
 func (s *Server) applyAntennaGains(r *http.Request, l *store.Link) {
 	l.TxGainDBi = s.antennaGain(r, l.TxAntennaID, l.TxGainDBi)
 	l.RxGainDBi = s.antennaGain(r, l.RxAntennaID, l.RxGainDBi)

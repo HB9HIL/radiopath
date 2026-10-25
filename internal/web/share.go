@@ -16,10 +16,12 @@ const (
 	shareMax    = 120
 )
 
+// shareURL returns the absolute public URL for a share path.
 func (s *Server) shareURL(path string) string {
 	return s.BaseURL + path
 }
 
+// shareLimit rate limits public share URLs per token (404 for a missing token, 429 over the limit) and marks responses noindex and no-store.
 func (s *Server) shareLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(r.URL.Path, "/")
@@ -42,6 +44,7 @@ func (s *Server) shareLimit(next http.Handler) http.Handler {
 	})
 }
 
+// shareLink handles POST /links/{id}/share: creates a share token valid for 30 days and redirects back to the link.
 func (s *Server) shareLink(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -55,6 +58,7 @@ func (s *Server) shareLink(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/links/%d", id), http.StatusSeeOther)
 }
 
+// unshareLink handles POST /links/{id}/share/delete: removes the share token and redirects back to the link.
 func (s *Server) unshareLink(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -68,6 +72,7 @@ func (s *Server) unshareLink(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/links/%d", id), http.StatusSeeOther)
 }
 
+// shareCoverage handles POST /coverages/{id}/share: creates a share token valid for 30 days and redirects back to the coverage.
 func (s *Server) shareCoverage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -81,6 +86,7 @@ func (s *Server) shareCoverage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/coverages/%d", id), http.StatusSeeOther)
 }
 
+// unshareCoverage handles POST /coverages/{id}/share/delete: removes the share token and redirects back to the coverage.
 func (s *Server) unshareCoverage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -94,6 +100,7 @@ func (s *Server) unshareCoverage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/coverages/%d", id), http.StatusSeeOther)
 }
 
+// sharedLink renders the public read-only link analysis for GET /s/l/{token}.
 func (s *Server) sharedLink(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	l, err := s.Store.GetSharedLink(r.Context(), token)
@@ -106,6 +113,7 @@ func (s *Server) sharedLink(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "link_detail", data)
 }
 
+// sharedLinkReport serves the PDF report of a shared link.
 func (s *Server) sharedLinkReport(w http.ResponseWriter, r *http.Request) {
 	l, err := s.Store.GetSharedLink(r.Context(), r.PathValue("token"))
 	if err != nil {
@@ -115,6 +123,7 @@ func (s *Server) sharedLinkReport(w http.ResponseWriter, r *http.Request) {
 	s.sendLinkReport(w, r, s.linkAnalysis(r, l))
 }
 
+// sharedCoverage renders the public read-only coverage page; it adds only the overlays the owner released for viewing, with token-scoped image URLs.
 func (s *Server) sharedCoverage(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	c, err := s.Store.GetSharedCoverage(r.Context(), token)
@@ -136,6 +145,7 @@ func (s *Server) sharedCoverage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "coverage_detail", data)
 }
 
+// sharedCoverageReport serves the PDF report of a shared coverage.
 func (s *Server) sharedCoverageReport(w http.ResponseWriter, r *http.Request) {
 	c, err := s.Store.GetSharedCoverage(r.Context(), r.PathValue("token"))
 	if err != nil {
@@ -145,6 +155,7 @@ func (s *Server) sharedCoverageReport(w http.ResponseWriter, r *http.Request) {
 	s.sendCoverageReport(w, r, c, "")
 }
 
+// sharedCoverageComposite serves the overlay composite PNG of a shared coverage; 404 if a requested overlay is not released for viewing.
 func (s *Server) sharedCoverageComposite(w http.ResponseWriter, r *http.Request) {
 	c, err := s.Store.GetSharedCoverage(r.Context(), r.PathValue("token"))
 	if err != nil {
@@ -161,6 +172,7 @@ func (s *Server) sharedCoverageComposite(w http.ResponseWriter, r *http.Request)
 	s.composite(w, r, c.OwnerID, with, c.ID, legendOf(c.Coverage))
 }
 
+// sharedCoverageImage serves the PNG of a shared coverage or, via ?id=, of one of its released overlays; 404 for any other id.
 func (s *Server) sharedCoverageImage(w http.ResponseWriter, r *http.Request) {
 	c, err := s.Store.GetSharedCoverage(r.Context(), r.PathValue("token"))
 	if err != nil {

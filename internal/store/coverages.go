@@ -46,6 +46,7 @@ type Coverage struct {
 
 const DefaultOpacity = 60
 
+// ComputeTime formats ComputeMs as ms, seconds or minutes and seconds.
 func (c Coverage) ComputeTime() string {
 	ms := int64(c.ComputeMs)
 	switch {
@@ -75,6 +76,7 @@ const coverageQuery = `SELECT c.id, c.owner_id, c.name, c.site_id, c.frequency_m
 	s.id, s.owner_id, s.name, ST_Y(s.position::geometry), ST_X(s.position::geometry), s.antenna_height_m
 	FROM coverages c JOIN sites s ON s.id = c.site_id`
 
+// scanCoverage scans a row selected with coverageQuery into c, filling defaults for NULL columns.
 func scanCoverage(row interface{ Scan(...any) error }, c *CoverageWithSite) error {
 	var ms *int32
 	var note, worker, jobErr, token *string
@@ -117,6 +119,7 @@ func scanCoverage(row interface{ Scan(...any) error }, c *CoverageWithSite) erro
 	return nil
 }
 
+// ListCoverages returns the owner's coverages with their sites, ordered by name.
 func (s *Store) ListCoverages(ctx context.Context, owner int64) ([]CoverageWithSite, error) {
 	rows, err := s.pool.Query(ctx, coverageQuery+` WHERE c.owner_id = $1 ORDER BY c.name, c.id`, owner)
 	if err != nil {
@@ -134,6 +137,7 @@ func (s *Store) ListCoverages(ctx context.Context, owner int64) ([]CoverageWithS
 	return out, rows.Err()
 }
 
+// GetCoverage returns the owner's coverage with its site; ErrNotFound when not owned.
 func (s *Store) GetCoverage(ctx context.Context, owner, id int64) (CoverageWithSite, error) {
 	var c CoverageWithSite
 	err := scanCoverage(s.pool.QueryRow(ctx, coverageQuery+` WHERE c.owner_id = $1 AND c.id = $2`, owner, id), &c)
@@ -143,6 +147,7 @@ func (s *Store) GetCoverage(ctx context.Context, owner, id int64) (CoverageWithS
 const coverageRefsOwned = `(SELECT owner_id FROM sites WHERE id = $3) = $1
 	AND ($15::bigint IS NULL OR (SELECT owner_id FROM antennas WHERE id = $15) = $1)`
 
+// CreateCoverage inserts a coverage; ErrQuota at MaxCoveragesPerUser, ErrNotFound when the site or antenna is not owned by the user.
 func (s *Store) CreateCoverage(ctx context.Context, c Coverage) (int64, error) {
 	var n int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM coverages WHERE owner_id = $1`, c.OwnerID).Scan(&n); err != nil {
@@ -164,6 +169,7 @@ func (s *Store) CreateCoverage(ctx context.Context, c Coverage) (int64, error) {
 	return id, mapErr(err)
 }
 
+// UpdateCoverage updates the owner's coverage and clears its result; a running job keeps its state. ErrNotFound when not owned or the site or antenna is foreign.
 func (s *Store) UpdateCoverage(ctx context.Context, c Coverage) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE coverages SET name = $2, site_id = $3, frequency_mhz = $4, tx_power_dbm = $5,
 		tx_gain_dbi = $6, tx_line_loss_db = $7, rx_height_m = $8, rx_gain_dbi = $9, rx_line_loss_db = $10,
@@ -185,6 +191,7 @@ func (s *Store) UpdateCoverage(ctx context.Context, c Coverage) error {
 	return nil
 }
 
+// DeleteCoverage deletes the owner's coverage; ErrNotFound when not owned.
 func (s *Store) DeleteCoverage(ctx context.Context, owner, id int64) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM coverages WHERE owner_id = $1 AND id = $2`, owner, id)
 	if err != nil {
@@ -196,6 +203,7 @@ func (s *Store) DeleteCoverage(ctx context.Context, owner, id int64) error {
 	return nil
 }
 
+// SetCoverageView stores opacity, circles and overlays; overlays are limited to the owner's other computed coverages. ErrNotFound when not owned.
 func (s *Store) SetCoverageView(ctx context.Context, owner, id int64, opacity int16, overlays []int64, circles bool) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE coverages SET view_opacity = $3, view_circles = $5,
 		view_overlays = (SELECT array_agg(x.id) FROM coverages x
@@ -211,6 +219,7 @@ func (s *Store) SetCoverageView(ctx context.Context, owner, id int64, opacity in
 	return nil
 }
 
+// CoveragesByID returns the owner's computed coverages among ids, ordered by name; nil for empty ids.
 func (s *Store) CoveragesByID(ctx context.Context, owner int64, ids []int64) ([]CoverageWithSite, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -243,11 +252,13 @@ type Raster struct {
 const rasterQuery = `SELECT id, result_png, result_margin, result_north, result_south, result_east, result_west,
 	legend_db, legend_colors FROM coverages WHERE owner_id = $1 AND result_png IS NOT NULL AND result_north IS NOT NULL`
 
+// scanRaster scans a row selected with rasterQuery into r.
 func scanRaster(row interface{ Scan(...any) error }, r *Raster) error {
 	return row.Scan(&r.ID, &r.PNG, &r.Margin, &r.Bounds.North, &r.Bounds.South, &r.Bounds.East, &r.Bounds.West,
 		&r.LegendDB, &r.LegendColors)
 }
 
+// CoverageRasters returns the result images of the owner's computed coverages among ids; nil for empty ids.
 func (s *Store) CoverageRasters(ctx context.Context, owner int64, ids []int64) ([]Raster, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -268,12 +279,14 @@ func (s *Store) CoverageRasters(ctx context.Context, owner int64, ids []int64) (
 	return out, rows.Err()
 }
 
+// CoverageRaster returns the result image of one of the owner's coverages; ErrNotFound when not owned or not computed.
 func (s *Store) CoverageRaster(ctx context.Context, owner, id int64) (Raster, error) {
 	var r Raster
 	err := scanRaster(s.pool.QueryRow(ctx, rasterQuery+` AND id = $2`, owner, id), &r)
 	return r, mapErr(err)
 }
 
+// SetCoverageLegend replaces the legend thresholds and colors of the owner's coverage; ErrNotFound when not owned.
 func (s *Store) SetCoverageLegend(ctx context.Context, owner, id int64, mins []float64, colors []string) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE coverages SET legend_db = $3, legend_colors = $4, updated_at = now()
 		WHERE owner_id = $1 AND id = $2`, owner, id, mins, colors)

@@ -15,10 +15,12 @@ type Antenna struct {
 
 const antennaCols = `id, owner_id, name, gain_dbi, coalesce(freq_mhz, 0), pattern_h, pattern_v, coalesce(source, '')`
 
+// scanAntenna scans a row selected with antennaCols into a.
 func scanAntenna(row interface{ Scan(...any) error }, a *Antenna) error {
 	return row.Scan(&a.ID, &a.OwnerID, &a.Name, &a.GainDBi, &a.FreqMHz, &a.PatternH, &a.PatternV, &a.Source)
 }
 
+// ListAntennas returns the owner's antennas ordered by name.
 func (s *Store) ListAntennas(ctx context.Context, owner int64) ([]Antenna, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+antennaCols+` FROM antennas WHERE owner_id = $1 ORDER BY name, id`, owner)
 	if err != nil {
@@ -36,12 +38,14 @@ func (s *Store) ListAntennas(ctx context.Context, owner int64) ([]Antenna, error
 	return out, rows.Err()
 }
 
+// GetAntenna returns the owner's antenna; ErrNotFound when it does not exist or belongs to someone else.
 func (s *Store) GetAntenna(ctx context.Context, owner, id int64) (Antenna, error) {
 	var a Antenna
 	err := scanAntenna(s.pool.QueryRow(ctx, `SELECT `+antennaCols+` FROM antennas WHERE owner_id = $1 AND id = $2`, owner, id), &a)
 	return a, mapErr(err)
 }
 
+// CreateAntenna inserts an antenna and returns its id; a zero FreqMHz or empty Source is stored as NULL.
 func (s *Store) CreateAntenna(ctx context.Context, a Antenna) (int64, error) {
 	var id int64
 	err := s.pool.QueryRow(ctx, `INSERT INTO antennas (owner_id, name, gain_dbi, freq_mhz, pattern_h, pattern_v, source)
@@ -50,6 +54,7 @@ func (s *Store) CreateAntenna(ctx context.Context, a Antenna) (int64, error) {
 	return id, err
 }
 
+// UpdateAntenna updates the owner's antenna and, in the same transaction, copies the new gain to links and coverages using it; ErrNotFound when not owned.
 func (s *Store) UpdateAntenna(ctx context.Context, a Antenna) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -77,6 +82,7 @@ func (s *Store) UpdateAntenna(ctx context.Context, a Antenna) error {
 	return tx.Commit(ctx)
 }
 
+// DeleteAntenna deletes the owner's antenna; ErrNotFound when not owned.
 func (s *Store) DeleteAntenna(ctx context.Context, owner, id int64) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM antennas WHERE owner_id = $1 AND id = $2`, owner, id)
 	if err != nil {

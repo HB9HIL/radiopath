@@ -1,5 +1,6 @@
 package itm
 
+// linearLeastSquaresFit fits a line to the profile between d_start and d_end (m) and returns its heights (m) at the two ends of the profile.
 func linearLeastSquaresFit(pfl []float64, d_start, d_end float64, fit_y1, fit_y2 *float64) {
 	np := int(pfl[0])
 

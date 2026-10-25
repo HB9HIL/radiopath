@@ -8,9 +8,13 @@ type Point struct {
 	Lat, Lon float64
 }
 
+// rad converts degrees to radians.
 func rad(deg float64) float64 { return deg * math.Pi / 180 }
+
+// deg converts radians to degrees.
 func deg(rad float64) float64 { return rad * 180 / math.Pi }
 
+// Distance returns the great-circle distance in m between a and b (haversine).
 func Distance(a, b Point) float64 {
 	lat1, lat2 := rad(a.Lat), rad(b.Lat)
 	dlat := lat2 - lat1
@@ -19,6 +23,7 @@ func Distance(a, b Point) float64 {
 	return 2 * EarthRadius * math.Asin(math.Min(1, math.Sqrt(h)))
 }
 
+// InitialBearing returns the bearing in degrees (0..360, clockwise from north) from a towards b.
 func InitialBearing(a, b Point) float64 {
 	lat1, lat2 := rad(a.Lat), rad(b.Lat)
 	dlon := rad(b.Lon - a.Lon)
@@ -27,6 +32,7 @@ func InitialBearing(a, b Point) float64 {
 	return math.Mod(deg(math.Atan2(y, x))+360, 360)
 }
 
+// PointAt returns the point at fraction frac (0..1) along the great circle from a to b.
 func PointAt(a, b Point, frac float64) Point {
 	if frac <= 0 {
 		return a
@@ -51,6 +57,7 @@ func PointAt(a, b Point, frac float64) Point {
 	}
 }
 
+// Destination returns the point distM metres from a along bearingDeg.
 func Destination(a Point, bearingDeg, distM float64) Point {
 	lat1, lon1 := rad(a.Lat), rad(a.Lon)
 	brg := rad(bearingDeg)

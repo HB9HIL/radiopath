@@ -81,20 +81,26 @@ template change and runs the server in the foreground. Node only runs in the
 builds the committed stylesheet once, `go build`, `go test` and the Docker image
 need no Node at all.
 
+CI (`.github/workflows/ci.yml`) runs gofmt, vet, staticcheck (`go tool
+staticcheck ./...`) and the unit tests, govulncheck, `scripts/funcdoc.py` (every
+function needs a doc comment), the stylesheet check and the e2e specs. It builds
+the static Linux binaries for amd64 and arm64 once: e2e tests the amd64 one,
+`docker/ci.Dockerfile` packs both into the multi-arch image
+`ghcr.io/radiopath/radiopath:<sha>`, tagged `staging` on main.
+
 Releases: note the changes under `## [Unreleased]` in `CHANGELOG.md`, move them
-into a `## [X.Y.Z] - date` section and push the tag `vX.Y.Z`. The release
-workflow runs the tests, takes that section as the release notes, attaches
-Linux binaries for amd64 and arm64 and pushes the multi-arch image
-`ghcr.io/radiopath/radiopath:X.Y.Z` (also tagged `latest`).
+into a `## [X.Y.Z] - date` section and push the tag `vX.Y.Z`. The tag run tags the
+image `X.Y.Z` and `latest` and creates the GitHub release with that section as
+notes and the binaries attached.
 
 ### End-to-end tests
 
 ```sh
-make e2e                   # builds the image, runs the Playwright specs against it, cleans up
+make e2e                   # builds the Linux binary and its image, runs the Playwright specs against it, cleans up
 ```
 
 Every service runs in its own container from the compose profile `e2e`: the
-real image (`e2e-app`, with the tiles of `tmp/testfiles`, registration on and a
+image (`e2e-app`, with the tiles of `tmp/testfiles`, registration on and a
 fixed admin token), PostGIS on a tmpfs, so each run starts with an empty
 database, and Mailpit. Playwright runs in the official image (its version follows
 `@playwright/test` in `e2e/package.json`) on the compose network and reaches the
@@ -107,9 +113,9 @@ The specs in `e2e/tests` cover login, sites, antennas, links, coverage jobs,
 per-user ownership, sharing, the account page, the admin panel and the mail flows
 (registration, confirmation, password reset). A failed run leaves screenshots,
 traces and the app log in `e2e/test-results/`; open a `trace.zip` at
-https://trace.playwright.dev. The GitHub Actions workflow
-(`.github/workflows/ci.yml`) runs gofmt, vet and the unit tests, checks that the
-committed stylesheet is in order, and runs `make e2e`.
+https://trace.playwright.dev. `make e2e` builds the Linux binary for the Docker
+host and packs it with `docker/ci.Dockerfile`, like CI does; `make e2e-run` skips
+the build and tests the binary already in `bin/`.
 
 ## DEM from S3
 

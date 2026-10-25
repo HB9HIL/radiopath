@@ -39,7 +39,7 @@ services:
     volumes:
       - ..:/src
 
-  # make e2e: the real image against its own database (fresh every run) and mail catcher; Playwright joins this network
+  # make e2e: the image packing the CI binary against its own database (fresh every run) and mail catcher; Playwright joins this network
   e2e-db:
     profiles: [e2e]
     image: imresamu/postgis:17-3.5
@@ -61,8 +61,8 @@ services:
   e2e-app:
     profiles: [e2e]
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ../bin
+      dockerfile: ../docker/ci.Dockerfile
     depends_on:
       e2e-db:
         condition: service_healthy

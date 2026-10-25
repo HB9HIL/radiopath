@@ -8,6 +8,7 @@ import (
 
 // ITU-R P.833-10 §2.1, terminal in woodland: A = A_m (1 - exp(-d gamma / A_m))
 
+// gammaDBm returns the specific attenuation gamma in dB/m of woodland at freqMHz [ITU-R P.833-10 §2.1].
 func gammaDBm(freqMHz float64, pol itm.Polarization) float64 {
 	f := freqMHz / 1000
 	if f < 1 && pol == itm.Vertical {
@@ -16,8 +17,10 @@ func gammaDBm(freqMHz float64, pol itm.Polarization) float64 {
 	return 0.2 * f
 }
 
+// maxAttenuationDB returns the maximum vegetation attenuation A_m in dB at freqMHz.
 func maxAttenuationDB(freqMHz float64) float64 { return 1.37 * math.Pow(freqMHz, 0.42) }
 
+// excessDB returns the vegetation loss in dB for dM metres of woodland path at freqMHz.
 func excessDB(dM, freqMHz float64, pol itm.Polarization) float64 {
 	if dM <= 0 {
 		return 0
@@ -26,6 +29,8 @@ func excessDB(dM, freqMHz float64, pol itm.Polarization) float64 {
 	return am * (1 - math.Exp(-dM*gammaDBm(freqMHz, pol)/am))
 }
 
+// canopyPath returns the path length in m inside canopy near end A and near end B, split at mid-path.
+// A fully blocked path counts completely towards A.
 func canopyPath(p []Sample) (dA, dB float64) {
 	n := len(p)
 	gap := func(i int) float64 { return p[i].RayM - p[i].TerrainM - p[i].BulgeM - p[i].CanopyM }

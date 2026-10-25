@@ -49,6 +49,7 @@ type doc struct {
 	tr func(string) string
 }
 
+// newDoc starts an A4 portrait PDF in millimetres with page breaks off.
 func newDoc() *doc {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(margin, margin, margin)
@@ -57,6 +58,7 @@ func newDoc() *doc {
 	return &doc{pdf, pdf.UnicodeTranslatorFromDescriptor("")}
 }
 
+// bytes returns the finished PDF.
 func (d *doc) bytes() ([]byte, error) {
 	var buf bytes.Buffer
 	if err := d.Output(&buf); err != nil {
@@ -65,10 +67,16 @@ func (d *doc) bytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// textColor sets the text colour.
 func (d *doc) textColor(c color.RGBA) { d.SetTextColor(int(c.R), int(c.G), int(c.B)) }
+
+// drawColor sets the line colour.
 func (d *doc) drawColor(c color.RGBA) { d.SetDrawColor(int(c.R), int(c.G), int(c.B)) }
+
+// fillColor sets the fill colour.
 func (d *doc) fillColor(c color.RGBA) { d.SetFillColor(int(c.R), int(c.G), int(c.B)) }
 
+// text writes s at x, y (mm), shrinking the font down to 5.5 pt until it fits width w; align "R" right-aligns within w.
 func (d *doc) text(x, y, w float64, s, family, style string, pt float64, align string) {
 	s = d.tr(s)
 	d.SetFont(family, style, pt)
@@ -82,6 +90,7 @@ func (d *doc) text(x, y, w float64, s, family, style string, pt float64, align s
 	d.Text(x, y, s)
 }
 
+// header draws the title, report kind, timestamp and user with a rule below; it returns the next y.
 func (d *doc) header(title, kind, user string, at time.Time) float64 {
 	d.textColor(ink)
 	d.text(margin, margin+6, contentW-60, title, "Helvetica", "B", 16, "L")
@@ -97,12 +106,14 @@ func (d *doc) header(title, kind, user string, at time.Time) float64 {
 	return margin + 18
 }
 
+// heading draws a section heading and returns the next y.
 func (d *doc) heading(x, y float64, s string) float64 {
 	d.textColor(ink)
 	d.text(x, y+3, colW, s, "Helvetica", "B", 9.5, "L")
 	return y + 6
 }
 
+// table draws a label column and right-aligned value columns, with an optional head row; it returns the next y.
 func (d *doc) table(x, y, w float64, head []string, rows [][]string) float64 {
 	ncol := 1
 	if len(head) > 0 {
@@ -141,12 +152,14 @@ func (d *doc) table(x, y, w float64, head []string, rows [][]string) float64 {
 	return y
 }
 
+// note draws one line of text in colour c and returns the next y.
 func (d *doc) note(x, y, w float64, s string, c color.RGBA) float64 {
 	d.textColor(c)
 	d.text(x, y+3, w, s, "Helvetica", "", 8, "L")
 	return y + 4.5
 }
 
+// mapBox draws the map PNG with attribution in the box x, y, w, h (mm); the returned func maps view pixels to page mm.
 func (d *doc) mapBox(x, y, w, h float64, png []byte, v tiles.View) func(px, py float64) (float64, float64) {
 	d.drawColor(line)
 	d.SetLineWidth(0.2)
@@ -170,6 +183,7 @@ func (d *doc) mapBox(x, y, w, h float64, png []byte, v tiles.View) func(px, py f
 	}
 }
 
+// marker draws a dot at x, y (mm) with a boxed label beside it.
 func (d *doc) marker(x, y float64, label string) {
 	d.fillColor(accent)
 	d.drawColor(color.RGBA{255, 255, 255, 255})
@@ -185,6 +199,7 @@ func (d *doc) marker(x, y float64, label string) {
 	d.text(x+3.5, y+1, lw, label, "Helvetica", "B", 7.5, "L")
 }
 
+// footer draws s centred below a rule at the bottom of the page.
 func (d *doc) footer(s string) {
 	d.drawColor(soft)
 	d.SetLineWidth(0.2)
@@ -194,6 +209,7 @@ func (d *doc) footer(s string) {
 	d.text(margin+(contentW-d.GetStringWidth(d.tr(s)))/2, bottom-1, contentW, s, "Helvetica", "", 7, "L")
 }
 
+// polarization returns "vertical" for 1 and "horizontal" otherwise.
 func polarization(p int16) string {
 	if p == 1 {
 		return "vertical"
@@ -201,6 +217,7 @@ func polarization(p int16) string {
 	return "horizontal"
 }
 
+// antenna appends the antenna name, azimuth and tilt rows for one end, or a single omnidirectional row when name is empty.
 func antenna(rows [][]string, end, name string, azimuthDeg, tiltDeg float64, towards string) [][]string {
 	if name == "" {
 		return append(rows, []string{end + " antenna", "omnidirectional"})

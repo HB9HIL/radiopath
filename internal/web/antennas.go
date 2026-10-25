@@ -22,6 +22,7 @@ type antennaView struct {
 	Form    map[string]string
 }
 
+// antennaViews adds the pattern plots to each antenna; manual antennas also get their edit form values.
 func antennaViews(as []store.Antenna) []antennaView {
 	out := make([]antennaView, len(as))
 	for i, a := range as {
@@ -44,10 +45,12 @@ type antennasData struct {
 	Edit     int64
 }
 
+// listAntennas renders the user's antennas (GET /antennas).
 func (s *Server) listAntennas(w http.ResponseWriter, r *http.Request) {
 	s.renderAntennas(w, r, http.StatusOK, nil)
 }
 
+// renderAntennas renders the antenna list with status and form errors; it is the shared error path of the antenna handlers.
 func (s *Server) renderAntennas(w http.ResponseWriter, r *http.Request, status int, errs []string) {
 	as, err := s.Store.ListAntennas(r.Context(), currentUser(r).ID)
 	if err != nil {
@@ -57,6 +60,7 @@ func (s *Server) renderAntennas(w http.ResponseWriter, r *http.Request, status i
 	s.render(w, status, "antennas_list", antennasData{base: s.base(r), Antennas: antennaViews(as), Errors: errs})
 }
 
+// createAntenna imports an uploaded MSI pattern file (size capped) as an antenna and redirects to /antennas; the name falls back to the file's name, then its filename.
 func (s *Server) createAntenna(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 2*maxPatternBytes)
 	if err := r.ParseMultipartForm(maxPatternBytes); err != nil {
@@ -96,6 +100,7 @@ func (s *Server) createAntenna(w http.ResponseWriter, r *http.Request) {
 
 const manualSource = "manual"
 
+// parseManualAntenna reads a manual antenna form and builds sector patterns from beamwidth and front-to-back ratio.
 func parseManualAntenna(r *http.Request) (store.Antenna, *form) {
 	f := &form{r: r}
 	rec := store.Antenna{
@@ -114,6 +119,7 @@ func parseManualAntenna(r *http.Request) (store.Antenna, *form) {
 	return rec, f
 }
 
+// createManualAntenna stores an antenna entered by hand and redirects to /antennas, or re-renders the list with 422 on invalid input.
 func (s *Server) createManualAntenna(w http.ResponseWriter, r *http.Request) {
 	rec, f := parseManualAntenna(r)
 	if len(f.Errors) > 0 {
@@ -127,6 +133,7 @@ func (s *Server) createManualAntenna(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/antennas", http.StatusSeeOther)
 }
 
+// antennaValues returns the form field values of a manual antenna, recovering beamwidths from its sector patterns.
 func antennaValues(a store.Antenna) map[string]string {
 	beam, fb := antenna.SectorParams(a.PatternH)
 	v := map[string]string{
@@ -143,6 +150,7 @@ func antennaValues(a store.Antenna) map[string]string {
 	return v
 }
 
+// nonZero returns a pointer to v, or nil when v is zero.
 func nonZero(v float64) *float64 {
 	if v == 0 {
 		return nil
@@ -150,6 +158,7 @@ func nonZero(v float64) *float64 {
 	return &v
 }
 
+// updateAntenna saves an edited manual antenna and redirects to /antennas; imported antennas give 404, invalid input re-renders the list with 422.
 func (s *Server) updateAntenna(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -188,6 +197,8 @@ func (s *Server) updateAntenna(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/antennas", http.StatusSeeOther)
 }
+
+// deleteAntenna deletes the user's antenna and redirects to /antennas.
 func (s *Server) deleteAntenna(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -201,6 +212,7 @@ func (s *Server) deleteAntenna(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/antennas", http.StatusSeeOther)
 }
 
+// pattern loads the antenna's radiation pattern; it returns an empty (omnidirectional) lobe when id is nil or the lookup fails.
 func (s *Server) pattern(r *http.Request, owner int64, id *int64) antenna.Lobe {
 	if id == nil {
 		return antenna.Lobe{}
@@ -213,6 +225,7 @@ func (s *Server) pattern(r *http.Request, owner int64, id *int64) antenna.Lobe {
 	return antenna.Lobe{H: a.PatternH, V: a.PatternV}
 }
 
+// azimuth returns *deg, or fallback when deg is nil.
 func azimuth(deg *float64, fallback float64) float64 {
 	if deg == nil {
 		return fallback
@@ -220,6 +233,7 @@ func azimuth(deg *float64, fallback float64) float64 {
 	return *deg
 }
 
+// optNumValue formats an optional number for a form field, empty when nil.
 func optNumValue(deg *float64) string {
 	if deg == nil {
 		return ""
@@ -227,6 +241,7 @@ func optNumValue(deg *float64) string {
 	return strconv.FormatFloat(*deg, 'f', -1, 64)
 }
 
+// antennaGain returns the selected antenna's gain, or the entered gain when none is selected or it cannot be loaded.
 func (s *Server) antennaGain(r *http.Request, id *int64, entered float64) float64 {
 	if id == nil {
 		return entered
@@ -238,6 +253,7 @@ func (s *Server) antennaGain(r *http.Request, id *int64, entered float64) float6
 	return a.GainDBi
 }
 
+// antennaName returns the name of the owner's antenna, or an empty string when id is nil or the lookup fails.
 func (s *Server) antennaName(r *http.Request, owner int64, id *int64) string {
 	if id == nil {
 		return ""

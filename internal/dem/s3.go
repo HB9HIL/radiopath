@@ -19,8 +19,10 @@ type s3Loader struct {
 	timeout time.Duration
 }
 
+// key returns the object key of the named tile, below a folder of its first three characters.
 func (l s3Loader) key(name string) string { return l.prefix + name[:3] + "/" + name + l.f.ext }
 
+// load downloads and parses the named tile; a missing object gives ErrNoTile.
 func (l s3Loader) load(name string) (*tile, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
 	defer cancel()
@@ -46,6 +48,7 @@ type S3Source struct {
 	cachedSource
 }
 
+// NewS3Source returns a terrain source reading .hgt tiles from the bucket under prefix.
 func NewS3Source(client *s3.Client, prefix string, maxTiles int) *S3Source {
 	l := s3Loader{client: client, prefix: prefix, f: hgt, timeout: 60 * time.Second}
 	return &S3Source{cachedSource{newTileCache("dem", maxTiles, l.load)}}

@@ -28,6 +28,7 @@ type SMTP struct {
 	Timeout  time.Duration
 }
 
+// Send delivers a plain-text mail over SMTP; it requires STARTTLS unless Plain is set and authenticates when User is set.
 func (m SMTP) Send(ctx context.Context, to, subject, body string) error {
 	timeout := m.Timeout
 	if timeout == 0 {
@@ -77,6 +78,7 @@ func (m SMTP) Send(ctx context.Context, to, subject, body string) error {
 	return c.Quit()
 }
 
+// message builds the RFC 5322 message with CRLF line endings, a Date and a random Message-ID on the sender's domain.
 func message(from, to, subject, body string, now time.Time) []byte {
 	var id [16]byte
 	rand.Read(id[:])

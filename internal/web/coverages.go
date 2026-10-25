@@ -45,6 +45,7 @@ type coverageFormData struct {
 	Errors   []string
 }
 
+// coverageValues returns the form field values of a coverage (range in km).
 func coverageValues(c store.Coverage) map[string]string {
 	f := func(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 	return map[string]string{
@@ -64,6 +65,7 @@ func coverageValues(c store.Coverage) map[string]string {
 	}
 }
 
+// parseCoverage reads and validates the coverage form, including the pixel limit (range / resolution) and the legend.
 func parseCoverage(r *http.Request) (store.Coverage, *form) {
 	f := &form{r: r}
 	c := store.Coverage{
@@ -94,6 +96,7 @@ func parseCoverage(r *http.Request) (store.Coverage, *form) {
 	return c, f
 }
 
+// coverageForm renders the coverage form with the user's sites and antennas.
 func (s *Server) coverageForm(w http.ResponseWriter, r *http.Request, status int, d coverageFormData) {
 	sites, err := s.Store.ListSites(r.Context(), currentUser(r).ID)
 	if err != nil {
@@ -110,6 +113,7 @@ func (s *Server) coverageForm(w http.ResponseWriter, r *http.Request, status int
 	s.render(w, status, "coverage_form", d)
 }
 
+// listCoverages renders the user's coverages together with their number of sites.
 func (s *Server) listCoverages(w http.ResponseWriter, r *http.Request) {
 	cs, err := s.Store.ListCoverages(r.Context(), currentUser(r).ID)
 	if err != nil {
@@ -128,6 +132,7 @@ func (s *Server) listCoverages(w http.ResponseWriter, r *http.Request) {
 	}{s.base(r), cs, sites})
 }
 
+// newCoverage renders the coverage form with defaults, or a copy of the coverage given by the from parameter without its computed result.
 func (s *Server) newCoverage(w http.ResponseWriter, r *http.Request) {
 	c := store.Coverage{FreqMHz: 145, TxPowerDBm: 40, RxHeightM: 2, RxSensitivityDBm: -120, Polarization: 1,
 		RangeM: 30000, ResolutionM: 100}
@@ -144,6 +149,7 @@ func (s *Server) newCoverage(w http.ResponseWriter, r *http.Request) {
 	s.coverageForm(w, r, http.StatusOK, coverageFormData{Coverage: c, Form: coverageValues(c)})
 }
 
+// createCoverage stores a new coverage and redirects to its page; invalid input or the per-user coverage limit re-render the form with 422.
 func (s *Server) createCoverage(w http.ResponseWriter, r *http.Request) {
 	c, f := parseCoverage(r)
 	if len(f.Errors) > 0 {
@@ -165,6 +171,7 @@ func (s *Server) createCoverage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/coverages/%d", id), http.StatusSeeOther)
 }
 
+// editCoverage renders the form for an existing coverage.
 func (s *Server) editCoverage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -179,6 +186,7 @@ func (s *Server) editCoverage(w http.ResponseWriter, r *http.Request) {
 	s.coverageForm(w, r, http.StatusOK, coverageFormData{Coverage: c.Coverage, Form: coverageValues(c.Coverage)})
 }
 
+// updateCoverage saves an edited coverage and redirects to its page, or re-renders the form with 422 on invalid input.
 func (s *Server) updateCoverage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -199,6 +207,7 @@ func (s *Server) updateCoverage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/coverages/%d", id), http.StatusSeeOther)
 }
 
+// deleteCoverage deletes a coverage and redirects to /coverages.
 func (s *Server) deleteCoverage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -212,6 +221,7 @@ func (s *Server) deleteCoverage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/coverages", http.StatusSeeOther)
 }
 
+// showCoverage renders the coverage page with the other computed coverages as overlays and the share URL if shared.
 func (s *Server) showCoverage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -239,11 +249,13 @@ func (s *Server) showCoverage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "coverage_detail", data)
 }
 
+// coverageDetail builds the detail data shared by the owner page and the public share page.
 func (s *Server) coverageDetail(r *http.Request, c store.CoverageWithSite, path string) coverageDetailData {
 	return coverageDetailData{Coverage: c, legendData: legendViews(legendOf(c.Coverage)), Path: path,
 		TxAntenna: s.antennaName(r, c.OwnerID, c.TxAntennaID)}
 }
 
+// coverageReport serves the owner's coverage as a PDF report.
 func (s *Server) coverageReport(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -258,6 +270,7 @@ func (s *Server) coverageReport(w http.ResponseWriter, r *http.Request) {
 	s.sendCoverageReport(w, r, c, s.base(r).User)
 }
 
+// sendCoverageReport renders the PDF with map and raster (when computed) and writes it to the response.
 func (s *Server) sendCoverageReport(w http.ResponseWriter, r *http.Request, c store.CoverageWithSite, user string) {
 	in := report.Coverage{Coverage: c, TxAntenna: s.antennaName(r, c.OwnerID, c.TxAntennaID),
 		User: user, Generated: time.Now(), View: rangeView(c), Legend: legendOf(c.Coverage)}
@@ -281,6 +294,7 @@ func (s *Server) sendCoverageReport(w http.ResponseWriter, r *http.Request, c st
 	servePDF(w, c.Name, pdf)
 }
 
+// otherRasters lists the user's other computed coverages as selectable overlays, marking those saved in c's view.
 func (s *Server) otherRasters(r *http.Request, c store.CoverageWithSite) ([]overlay, error) {
 	cs, err := s.Store.ListCoverages(r.Context(), currentUser(r).ID)
 	if err != nil {
@@ -296,6 +310,7 @@ func (s *Server) otherRasters(r *http.Request, c store.CoverageWithSite) ([]over
 	return out, nil
 }
 
+// setCoverageView saves the map view (opacity, overlays, range circles) of a coverage and answers 204; opacity outside 0-100 gives 400.
 func (s *Server) setCoverageView(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -315,6 +330,7 @@ func (s *Server) setCoverageView(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// viewIDs parses a comma-separated ID list, skipping invalid entries and stopping at the per-user coverage limit.
 func viewIDs(v string) []int64 {
 	var out []int64
 	for _, p := range strings.Split(v, ",") {
@@ -329,6 +345,7 @@ func viewIDs(v string) []int64 {
 	return out
 }
 
+// computeCoverage queues the coverage for calculation and redirects to its page; at the job limit it redirects with an error message.
 func (s *Server) computeCoverage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -350,6 +367,7 @@ func (s *Server) computeCoverage(w http.ResponseWriter, r *http.Request) {
 
 const maxCompositeRasters = 20
 
+// coverageComposite serves a PNG merging this coverage with the rasters named in the with parameter.
 func (s *Server) coverageComposite(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -365,11 +383,13 @@ func (s *Server) coverageComposite(w http.ResponseWriter, r *http.Request) {
 	s.composite(w, r, c.OwnerID, withIDs(r.URL.Query().Get("with")), c.ID, legendOf(c.Coverage))
 }
 
+// withIDs parses, sorts and de-duplicates the with parameter, capped at maxCompositeRasters.
 func withIDs(v string) []int64 {
 	ids := slices.Compact(slices.Sorted(slices.Values(viewIDs(v))))
 	return ids[:min(len(ids), maxCompositeRasters)]
 }
 
+// composite merges the owner's rasters (with plus own) into one PNG using legend l, with bounds in X-Raster-Bounds; a missing raster gives 404.
 func (s *Server) composite(w http.ResponseWriter, r *http.Request, owner int64, with []int64, own int64, l plot.Legend) {
 	ids := append(slices.Clone(with), own)
 	rasters, err := s.Store.CoverageRasters(r.Context(), owner, ids)
@@ -410,6 +430,7 @@ func (s *Server) composite(w http.ResponseWriter, r *http.Request, owner int64, 
 	w.Write(plot.CompositePNG(m, l))
 }
 
+// coverageImage serves the coverage's raster as PNG.
 func (s *Server) coverageImage(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {

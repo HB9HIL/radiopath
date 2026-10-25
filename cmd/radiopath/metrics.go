@@ -27,6 +27,7 @@ type dbCollector struct {
 	log   *slog.Logger
 }
 
+// Describe sends the metric descriptors to ch.
 func (c dbCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- usersDesc
 	ch <- sitesDesc
@@ -35,6 +36,7 @@ func (c dbCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- coveragesDesc
 }
 
+// Collect queries the database stats and emits gauges; on error it logs and emits nothing.
 func (c dbCollector) Collect(ch chan<- prometheus.Metric) {
 	ctx, cancel := context.WithTimeout(context.Background(), statsTimeout)
 	defer cancel()
@@ -55,6 +57,7 @@ func (c dbCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
+// metricsServer registers the DB collector and returns an HTTP server exposing GET /metrics.
 func metricsServer(addr string, st *store.Store, log *slog.Logger) *http.Server {
 	prometheus.MustRegister(dbCollector{store: st, log: log})
 	mux := http.NewServeMux()

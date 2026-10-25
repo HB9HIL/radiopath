@@ -35,6 +35,7 @@ const (
 	registerIPMax  = 5
 )
 
+// clientIP returns the caller's IP; behind a trusted proxy it takes the last X-Forwarded-For entry, which is the one our proxy appended.
 func (s *Server) clientIP(r *http.Request) string {
 	if s.TrustProxy {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
@@ -49,11 +50,13 @@ func (s *Server) clientIP(r *http.Request) string {
 	return host
 }
 
+// limited reports whether key already has max or more hits within window, without counting a new one.
 func (s *Server) limited(r *http.Request, key string, window time.Duration, max int) (bool, error) {
 	n, err := s.Store.RateCount(r.Context(), key, window)
 	return n >= max, err
 }
 
+// tooMany returns the rate-limit error text with the wait time in minutes.
 func tooMany(window time.Duration) string {
 	return fmt.Sprintf("Too many attempts. Try again in %d minutes.", int(window.Minutes()))
 }
@@ -62,36 +65,43 @@ type ctxKey int
 
 const userKey ctxKey = 0
 
+// HashPassword returns the bcrypt hash of password at bcryptCost.
 func HashPassword(password string) (string, error) {
 	h, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	return string(h), err
 }
 
+// randomToken returns 32 random bytes as unpadded base64url.
 func randomToken() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+// newSessionToken returns a fresh token for the cookie and its id, which is the only form stored in the database.
 func newSessionToken() (token, id string) {
 	token = randomToken()
 	return token, sessionID(token)
 }
 
+// sessionID returns the hex SHA-256 of token, so a leaked database cannot be replayed as cookies.
 func sessionID(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
 }
 
+// currentUser returns the user that requireAuth put into the request context, or the zero value.
 func currentUser(r *http.Request) store.User {
 	u, _ := r.Context().Value(userKey).(store.User)
 	return u
 }
 
+// secureCookie reports whether the request came over HTTPS, directly or via a proxy header.
 func secureCookie(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 }
 
+// sessionUser returns the user of the session cookie, or store.ErrNotFound when it is missing, idle or expired.
 func (s *Server) sessionUser(r *http.Request) (store.User, error) {
 	c, err := r.Cookie(sessionCookie)
 	if err != nil {
@@ -100,6 +110,7 @@ func (s *Server) sessionUser(r *http.Request) (store.User, error) {
 	return s.Store.SessionUser(r.Context(), sessionID(c.Value), sessionIdle, sessionTTL)
 }
 
+// requireAuth puts the session user into the context, or redirects to /login with a safe return path; store errors give a 500.
 func (s *Server) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if u, err := s.sessionUser(r); err == nil {
@@ -128,10 +139,12 @@ type loginData struct {
 	Maintenance  bool
 }
 
+// loginPage returns login template data with the registration and forgot-password links switched on as configured.
 func (s *Server) loginPage(next, errMsg string) loginData {
 	return loginData{Next: next, Error: errMsg, Registration: s.Registration, Forgot: s.Mail != nil}
 }
 
+// maintenance returns the maintenance flag; ok is false when the lookup failed and the error response was already written.
 func (s *Server) maintenance(w http.ResponseWriter, r *http.Request) (bool, bool) {
 	on, err := s.Store.Maintenance(r.Context())
 	if err != nil {
@@ -141,6 +154,7 @@ func (s *Server) maintenance(w http.ResponseWriter, r *http.Request) (bool, bool
 	return on, true
 }
 
+// loginForm renders GET /login (503 in maintenance mode) or redirects to / when a session exists.
 func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.sessionUser(r); err == nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -159,6 +173,7 @@ func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, status, "login", d)
 }
 
+// login checks the credentials, counts failures against the IP and user rate limits and starts a session on success; unverified accounts get a 403.
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	name := strings.ToLower(strings.TrimSpace(r.PostFormValue("name")))
 	password := r.PostFormValue("password")
@@ -225,6 +240,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
+// startSession stores a new session for userID and sets its cookie.
 func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int64) error {
 	token, sid := newSessionToken()
 	if err := s.Store.CreateSession(r.Context(), sid, userID, time.Now().Add(sessionIdle)); err != nil {
@@ -239,6 +255,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int
 
 var userNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$`)
 
+// ValidateCredentials returns the user name and password rule violations; empty means valid.
 func ValidateCredentials(name, password string) []string {
 	var errs []string
 	if !userNameRe.MatchString(name) {
@@ -247,6 +264,7 @@ func ValidateCredentials(name, password string) []string {
 	return append(errs, validatePassword(password)...)
 }
 
+// validatePassword returns the password length violations; the upper limit is bcrypt's 72 bytes.
 func validatePassword(password string) []string {
 	var errs []string
 	if len(password) < 10 {
@@ -265,6 +283,7 @@ type registerData struct {
 	Errors []string
 }
 
+// registerForm renders GET /register (503 in maintenance mode) or redirects to / when a session exists.
 func (s *Server) registerForm(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.sessionUser(r); err == nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -279,6 +298,7 @@ func (s *Server) registerForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "register", registerData{})
 }
 
+// register handles POST /register: per-IP rate limit, validation, account creation and the confirmation mail, then redirects to /login.
 func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	if on, ok := s.maintenance(w, r); !ok {
 		return
@@ -336,6 +356,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login?msg=registered", http.StatusSeeOther)
 }
 
+// logout deletes the session, clears the cookie and redirects to /login.
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		if err := s.Store.DeleteSession(r.Context(), sessionID(c.Value)); err != nil {
@@ -346,6 +367,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+// safeNext returns next only if it is a local path, otherwise /, so login cannot redirect off site.
 func safeNext(next string) string {
 	// "//host" and "/\host" (browsers turn \ into /) would leave the site
 	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {

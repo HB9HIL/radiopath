@@ -21,6 +21,7 @@ const (
 	top, bottom   = 20, 40
 )
 
+// SVG draws the path profile (terrain, earth bulge, canopy, Fresnel zone and ray) as an SVG; antAM and antBM are antenna heights in m.
 func SVG(r link.Result, antAM, antBM float64) []byte {
 	p := r.Profile
 	if len(p) < 2 {
@@ -110,6 +111,7 @@ const (
 	MaxLegendDB = 127
 )
 
+// DefaultLegend returns the standard four-bin margin legend, thresholds 30, 20, 10 and 0 dB.
 func DefaultLegend() Legend {
 	return Legend{
 		{30, color.RGBA{0, 100, 0, 255}},
@@ -119,6 +121,7 @@ func DefaultLegend() Legend {
 	}
 }
 
+// NewLegend builds a legend from margin thresholds in dB and #rrggbb colours, sorted from high to low; it rejects invalid or duplicate thresholds.
 func NewLegend(mins []float64, colors []string) (Legend, error) {
 	if len(mins) != len(colors) {
 		return nil, fmt.Errorf("legend: %d thresholds but %d colours", len(mins), len(colors))
@@ -146,6 +149,7 @@ func NewLegend(mins []float64, colors []string) (Legend, error) {
 	return l, nil
 }
 
+// LegendOr returns the legend for mins and colors, or the default legend when they are empty or invalid.
 func LegendOr(mins []float64, colors []string) Legend {
 	if len(mins) == 0 {
 		return DefaultLegend()
@@ -157,6 +161,7 @@ func LegendOr(mins []float64, colors []string) Legend {
 	return l
 }
 
+// Mins returns the bin thresholds in dB.
 func (l Legend) Mins() []float64 {
 	out := make([]float64, len(l))
 	for i, b := range l {
@@ -165,6 +170,7 @@ func (l Legend) Mins() []float64 {
 	return out
 }
 
+// Hex returns the bin colours as #rrggbb.
 func (l Legend) Hex() []string {
 	out := make([]string, len(l))
 	for i, b := range l {
@@ -173,6 +179,7 @@ func (l Legend) Hex() []string {
 	return out
 }
 
+// Label returns the dB range text of bin i.
 func (l Legend) Label(i int) string {
 	if i == 0 {
 		return ">= " + db(l[0].MinDB) + " dB"
@@ -180,10 +187,12 @@ func (l Legend) Label(i int) string {
 	return db(l[i].MinDB) + " to " + db(l[i-1].MinDB) + " dB"
 }
 
+// Floor returns the label for margins below the lowest bin and for pixels without data.
 func (l Legend) Floor() string {
 	return "below " + db(l[len(l)-1].MinDB) + " dB / no data"
 }
 
+// bin returns the index of the first bin with a threshold at or below margin m (dB), or -1 for none or NaN.
 func (l Legend) bin(m float64) int {
 	if math.IsNaN(m) {
 		return -1
@@ -196,10 +205,13 @@ func (l Legend) bin(m float64) int {
 	return -1
 }
 
+// db formats v without trailing zeros.
 func db(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 
+// Hex returns the bin colour as #rrggbb.
 func (b Bin) Hex() string { return fmt.Sprintf("#%02x%02x%02x", b.Color.R, b.Color.G, b.Color.B) }
 
+// ParseHex parses a #rrggbb colour.
 func ParseHex(s string) (color.RGBA, error) {
 	var c color.RGBA
 	if len(s) != 7 || s[0] != '#' {
@@ -212,10 +224,13 @@ func ParseHex(s string) (color.RGBA, error) {
 	return color.RGBA{uint8(v >> 16), uint8(v >> 8), uint8(v), 255}, nil
 }
 
+// CoveragePNG renders the coverage as a paletted PNG with a cross marking the transmitter at the centre.
 func CoveragePNG(r coverage.Result, l Legend) []byte { return paint(r, l, true) }
 
+// CompositePNG renders the coverage as a paletted PNG without the transmitter cross, for merged results.
 func CompositePNG(r coverage.Result, l Legend) []byte { return paint(r, l, false) }
 
+// paint renders r as a paletted PNG: index 0 is transparent for no data, then one index per legend bin.
 func paint(r coverage.Result, l Legend, cross bool) []byte {
 	pal := color.Palette{color.RGBA{0, 0, 0, 0}}
 	for _, b := range l {
@@ -246,6 +261,7 @@ func paint(r coverage.Result, l Legend, cross bool) []byte {
 
 const marginOffset = 128 // grey = floor(margin dB) + offset, clamped 1..255; 0 = no data
 
+// MarginPNG encodes the margin as an 8-bit grey PNG, one dB per step, for storage and later re-rendering.
 func MarginPNG(r coverage.Result) []byte {
 	img := image.NewGray(image.Rect(0, 0, r.W, r.H))
 	for y := 0; y < r.H; y++ {
@@ -262,6 +278,8 @@ func MarginPNG(r coverage.Result) []byte {
 	return b.Bytes()
 }
 
+// DecodeRaster rebuilds a coverage result for the given bounds (degrees) from a grey margin PNG or a paletted PNG;
+// a paletted PNG only yields the bin thresholds.
 func DecodeRaster(b []byte, north, south, east, west float64) (coverage.Result, error) {
 	img, err := png.Decode(bytes.NewReader(b))
 	if err != nil {
@@ -297,10 +315,13 @@ func DecodeRaster(b []byte, north, south, east, west float64) (coverage.Result, 
 	return r, nil
 }
 
+// PatternSVG draws the horizontal antenna pattern as a polar SVG, size in pixels, 30 dB range.
 func PatternSVG(p antenna.Pattern, size int) []byte { return patternSVG(p, size, 0) }
 
+// ElevationSVG draws the vertical antenna pattern as a polar SVG rotated by 90 degrees, size in pixels.
 func ElevationSVG(p antenna.Pattern, size int) []byte { return patternSVG(p, size, 90) }
 
+// patternSVG draws the attenuation pattern as a polar SVG, rotated by rotDeg, with rings every 10 dB.
 func patternSVG(p antenna.Pattern, size int, rotDeg float64) []byte {
 	const rangeDB = 30.0
 	c := float64(size) / 2

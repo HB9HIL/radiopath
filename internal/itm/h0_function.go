@@ -2,6 +2,7 @@ package itm
 
 import "math"
 
+// h0Curve returns the H_0 frequency gain curve j (0..4) in dB at r.
 func h0Curve(j int, r float64) float64 {
 	a := [...]float64{25.0, 80.0, 177.0, 395.0, 705.0}
 	b := [...]float64{24.0, 45.0, 68.0, 80.0, 105.0}

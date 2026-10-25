@@ -26,10 +26,12 @@ type Link struct {
 	View                       tiles.View
 }
 
+// LinkPDF renders the link report as an A4 PDF.
 func LinkPDF(in Link) ([]byte, error) {
 	return buildLink(in).bytes()
 }
 
+// buildLink lays out the link report: parameters, results, margin panel, map and path profile.
 func buildLink(in Link) *doc {
 	d := newDoc()
 	l, r := in.Link, in.Result
@@ -120,6 +122,7 @@ func buildLink(in Link) *doc {
 	return d
 }
 
+// towards returns a hint naming the other site when no azimuth is set, else an empty string.
 func towards(az *float64, other string) string {
 	if az == nil {
 		return " (towards " + other + ")"
@@ -127,6 +130,7 @@ func towards(az *float64, other string) string {
 	return ""
 }
 
+// marginPanel draws the median and reliability link margins in dB and returns the next y.
 func (d *doc) marginPanel(y float64, r *link.Result, rel float64) float64 {
 	const h = 12.0
 	d.drawColor(line)
@@ -142,6 +146,7 @@ func (d *doc) marginPanel(y float64, r *link.Result, rel float64) float64 {
 	return y + h + 3
 }
 
+// signColor returns the danger colour for a negative margin and the ok colour otherwise.
 func signColor(v float64) color.RGBA {
 	if v < 0 {
 		return danger
@@ -149,6 +154,7 @@ func signColor(v float64) color.RGBA {
 	return ok
 }
 
+// profile draws the path profile in the box x, y, w, h (mm): terrain, canopy, Fresnel zone and ray.
 func (d *doc) profile(x, y, w, h float64, r *link.Result, antAM, antBM float64) {
 	p := r.Profile
 	if len(p) < 2 {
@@ -225,6 +231,7 @@ func (d *doc) profile(x, y, w, h float64, r *link.Result, antAM, antBM float64) 
 	}
 }
 
+// polyline draws straight segments through pts.
 func (d *doc) polyline(pts []fpdf.PointType) {
 	for i := 1; i < len(pts); i++ {
 		d.Line(pts[i-1].X, pts[i-1].Y, pts[i].X, pts[i].Y)

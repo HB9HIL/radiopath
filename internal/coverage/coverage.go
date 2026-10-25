@@ -42,6 +42,7 @@ type Result struct {
 	Errors                   []string
 }
 
+// At returns the margin in dB at column x and row y.
 func (r Result) At(x, y int) float64 { return r.Margin[y*r.W+x] }
 
 type Computer interface {
@@ -52,11 +53,13 @@ type Calculator struct {
 	DEM dem.Source
 }
 
+// radialCount returns the number of radials, enough for one per resolution step at the range edge, within the limits.
 func radialCount(in Input) int {
 	n := int(math.Ceil(2 * math.Pi * in.RangeM / in.ResolutionM))
 	return min(max(n, minRadials), maxRadials)
 }
 
+// Compute runs ITM along radials from the transmitter in parallel and resamples them to a square margin grid in degrees.
 func (c Calculator) Compute(ctx context.Context, in Input) (Result, error) {
 	var r Result
 	if in.RangeM < MinRangeM || in.RangeM > MaxRangeM {
@@ -136,6 +139,7 @@ func (c Calculator) Compute(ctx context.Context, in Input) (Result, error) {
 	return r, nil
 }
 
+// radial returns the link margin in dB for each resolution step (index 1..n) along one bearing in degrees; NaN where ITM failed.
 func (c Calculator) radial(ctx context.Context, in Input, h0, bearing float64, n int) (out []float64, err error) {
 	out = make([]float64, n+1)
 	for i := range out {

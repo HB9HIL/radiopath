@@ -43,6 +43,7 @@ const linkCols = `l.id, l.owner_id, l.name, l.site_a_id, l.site_b_id, l.frequenc
 	l.tx_antenna_id, l.tx_azimuth_deg, l.rx_antenna_id, l.rx_azimuth_deg, l.clutter_loss_db, l.measured_rx_dbm,
 	l.share_token, l.share_expires_at, l.tx_tilt_deg, l.rx_tilt_deg`
 
+// scanLink scans a row selected with linkQuery into l, including both sites.
 func scanLink(row interface{ Scan(...any) error }, l *LinkWithSites) error {
 	var token *string
 	err := row.Scan(&l.ID, &l.OwnerID, &l.Name, &l.SiteAID, &l.SiteBID, &l.FreqMHz, &l.TxPowerDBm, &l.TxGainDBi, &l.RxGainDBi,
@@ -70,6 +71,7 @@ const linkRefsOwned = `(SELECT owner_id FROM sites WHERE id = $3) = $1
 	AND ($13::bigint IS NULL OR (SELECT owner_id FROM antennas WHERE id = $13) = $1)
 	AND ($15::bigint IS NULL OR (SELECT owner_id FROM antennas WHERE id = $15) = $1)`
 
+// ListLinks returns the owner's links with both sites, ordered by name.
 func (s *Store) ListLinks(ctx context.Context, owner int64) ([]LinkWithSites, error) {
 	rows, err := s.pool.Query(ctx, linkQuery+` WHERE l.owner_id = $1 ORDER BY l.name, l.id`, owner)
 	if err != nil {
@@ -87,12 +89,14 @@ func (s *Store) ListLinks(ctx context.Context, owner int64) ([]LinkWithSites, er
 	return out, rows.Err()
 }
 
+// GetLink returns the owner's link with both sites; ErrNotFound when not owned.
 func (s *Store) GetLink(ctx context.Context, owner, id int64) (LinkWithSites, error) {
 	var l LinkWithSites
 	err := scanLink(s.pool.QueryRow(ctx, linkQuery+` WHERE l.owner_id = $1 AND l.id = $2`, owner, id), &l)
 	return l, mapErr(err)
 }
 
+// CreateLink inserts a link; ErrNotFound when a site or antenna is not owned by the user.
 func (s *Store) CreateLink(ctx context.Context, l Link) (int64, error) {
 	var id int64
 	err := s.pool.QueryRow(ctx, `INSERT INTO links (owner_id, name, site_a_id, site_b_id, frequency_mhz, tx_power_dbm,
@@ -107,6 +111,7 @@ func (s *Store) CreateLink(ctx context.Context, l Link) (int64, error) {
 	return id, mapErr(err)
 }
 
+// UpdateLink updates the owner's link; ErrNotFound when not owned or a site or antenna is foreign.
 func (s *Store) UpdateLink(ctx context.Context, l Link) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE links SET name = $2, site_a_id = $3, site_b_id = $4, frequency_mhz = $5,
 		tx_power_dbm = $6, tx_gain_dbi = $7, rx_gain_dbi = $8, tx_line_loss_db = $9, rx_line_loss_db = $10,
@@ -127,6 +132,7 @@ func (s *Store) UpdateLink(ctx context.Context, l Link) error {
 	return nil
 }
 
+// DeleteLink deletes the owner's link; ErrNotFound when not owned.
 func (s *Store) DeleteLink(ctx context.Context, owner, id int64) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM links WHERE owner_id = $1 AND id = $2`, owner, id)
 	if err != nil {

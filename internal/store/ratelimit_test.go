@@ -8,7 +8,7 @@ import (
 )
 
 // The window reset lives in SQL, so it needs a database: DATABASE_URL=... go test ./internal/store/
-// make db-up brings one up; without it the test skips.
+// make dev brings one up; without it the test skips.
 func TestRateHitWindow(t *testing.T) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {

@@ -13,6 +13,7 @@ var migrations embed.FS
 
 const migrateLockKey = 7346263
 
+// Migrate applies the embedded SQL migrations in name order, each in a transaction, under an advisory lock so concurrent instances do not race.
 func (s *Store) Migrate(ctx context.Context, log *slog.Logger) error {
 	conn, err := s.pool.Acquire(ctx)
 	if err != nil {

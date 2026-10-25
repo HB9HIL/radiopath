@@ -120,6 +120,7 @@ type Calculator struct {
 	Canopy dem.Canopy
 }
 
+// Analyze runs the point-to-point analysis and records its duration and result in the metrics.
 func (c Calculator) Analyze(ctx context.Context, in Input) (Result, error) {
 	start := time.Now()
 	r, err := c.analyze(ctx, in)
@@ -132,6 +133,8 @@ func (c Calculator) Analyze(ctx context.Context, in Input) (Result, error) {
 	return r, err
 }
 
+// analyze samples terrain and canopy along the great circle, runs ITM at the median and reliability time
+// percentages, then adds antenna pattern, line, clutter and vegetation losses to get levels and margins in dB.
 func (c Calculator) analyze(ctx context.Context, in Input) (Result, error) {
 	var r Result
 	r.DistanceM = geo.Distance(in.A.Pos, in.B.Pos)
@@ -220,6 +223,8 @@ func (c Calculator) analyze(ctx context.Context, in Input) (Result, error) {
 	return r, nil
 }
 
+// profile builds the per-sample path geometry (m), and returns it with the worst Fresnel zone clearance in percent
+// and the distance (m) where it occurs; earth bulge uses the k-factor radius and canopy height is subtracted from the clearance.
 func profile(elev, canopy []float64, step float64, in Input) ([]Sample, float64, float64) {
 	n := len(elev)
 	d := float64(step * float64(n-1))
@@ -261,6 +266,7 @@ func profile(elev, canopy []float64, step float64, in Input) ([]Sample, float64,
 	return samples, worst, worstDist
 }
 
+// OffBoresight describes an angle in degrees as on, above or below boresight.
 func OffBoresight(deg float64) string {
 	switch {
 	case math.Abs(deg) < 0.05:
