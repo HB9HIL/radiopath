@@ -30,7 +30,7 @@ dev: .env node_modules web/node_modules internal/webui/dist/index.html tmp/testf
 	@$(COMPOSE) up -d --wait db valkey mailpit
 	@set -a; . ./.env; set +a; \
 		docker rm -f radiopath-css radiopath-vite >/dev/null 2>&1; \
-		$(NODE_RUN) --name radiopath-css node $(TAILWIND) --watch=always >/dev/null 2>&1 & \
+		$(NODE_RUN) --name radiopath-css node $(TAILWIND) --watch=always --minify >/dev/null 2>&1 & \
 		RADIOPATH_BASE_URL=http://localhost:5173 ./bin/radiopath-dev & pid=$$!; \
 		trap 'kill $$pid 2>/dev/null; docker rm -f radiopath-css radiopath-vite >/dev/null 2>&1; $(COMPOSE) stop db valkey mailpit' EXIT INT TERM; \
 		for i in $$(seq 30); do curl -sf -o /dev/null http://localhost:8080/healthz && break; sleep 0.5; done; \
