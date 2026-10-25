@@ -4,8 +4,10 @@ import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
-// Leaflet guesses the marker images from its CSS path, which the bundle breaks; give it the bundled ones.
-L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl, imagePath: '' });
+// Leaflet guesses the marker images from its CSS path, which the bundle breaks; give it the bundled ones. The static
+// imagePath must be a string, or Leaflet prepends the guessed directory to these URLs.
+L.Icon.Default.imagePath = '';
+L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
 type Point = { name: string; lat: number; lon: number };
 
