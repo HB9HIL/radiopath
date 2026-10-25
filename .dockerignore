@@ -1,13 +1,13 @@
-dem/
-*.hgt
-*.hgt.zip
-bin/
-.git/
-docker/
-e2e/
-.github/
+# docker/Dockerfile builds from the repository root. Allowlist: the build context holds only what the build needs,
+# so secrets (.env), terrain data and local files never reach it. docker/ci.Dockerfile uses bin/ as its context.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/
+!web/
+
+# Built by the web stage of the Dockerfile, or installed there
+internal/webui/dist
 **/node_modules
 web/.svelte-kit
-internal/webui/dist
-tmp/
-renovate.json

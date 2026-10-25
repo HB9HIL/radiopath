@@ -1,16 +1,42 @@
+# Build output
 /bin/
 /radiopath
+/internal/webui/dist/
+/web/.svelte-kit/
+
+# Dependencies (installed in the node and Playwright containers)
+/web/node_modules/
+/e2e/node_modules/
+
+# Local config and secrets; .env.example is the template
+/.env
+/.env.*
+!/.env.example
+
+# Terrain and canopy data, the sync scripts' logs, scratch space (make dev clones testfiles into tmp/)
 /dem/
 /canopy/
 *.hgt
 *.hgt.zip
 *.chm
-/.env
 /dem-sync.log
 /canopy-sync.log
 /tmp/
-/e2e/node_modules/
+
+# Test output
 /e2e/test-results/
-/internal/webui/dist/
-/web/node_modules/
-/web/.svelte-kit/
+*.test
+*.out
+*.prof
+
+# Local notes for coding agents
+CLAUDE.md
+CLAUDE.local.md
+/.claude/settings.local.json
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

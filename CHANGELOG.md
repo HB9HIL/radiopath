@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Chore
 - Prettier formats TypeScript and Svelte (`make format`), checked by `make check` and in CI (by @HB9HIL)
+- The Docker build context holds only the sources (`.dockerignore` as an allowlist), so a local `.env` or terrain data no longer reach it (by @HB9HIL)
 
 ## [1.2.8] - 2026-10-25
 
