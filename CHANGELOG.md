@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-10-25
+
 ### Fixed
 - Release images showed the version of the preceding main build (1.2.7 showed `v1.2.5-19-g1ca860e`): every CI run now packs its own binaries instead of reusing the commit's image (by @HB9HIL)
+
+### Chore
+- Renovate keeps the node image on version 26 (by @HB9HIL)
 
 ## [1.2.7] - 2026-10-25
 
