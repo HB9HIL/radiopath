@@ -22,6 +22,16 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: false
+      # A cache per job and arch: setup-go's shared one is saved by whichever job ends first and fits the others'
+      # flags (-race, -trimpath, GOARCH) poorly. Saved again only when go.mod or go.sum change.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ github.job }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-${{ github.job }}-
       - run: test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }
       - run: go vet ./...
       - run: go tool staticcheck ./...
@@ -35,6 +45,16 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: false
+      # A cache per job and arch: setup-go's shared one is saved by whichever job ends first and fits the others'
+      # flags (-race, -trimpath, GOARCH) poorly. Saved again only when go.mod or go.sum change.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ github.job }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-${{ github.job }}-
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   funcdoc:
@@ -65,6 +85,16 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: false
+      # A cache per job and arch: setup-go's shared one is saved by whichever job ends first and fits the others'
+      # flags (-race, -trimpath, GOARCH) poorly. Saved again only when go.mod or go.sum change.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ github.job }}-${{ matrix.arch }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-${{ github.job }}-${{ matrix.arch }}-
       - run: make VERSION="$(git describe --tags --always)" bin/radiopath-linux-${{ matrix.arch }}
       - uses: actions/upload-artifact@v7
         with:
