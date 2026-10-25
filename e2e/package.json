@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Playwright e2e specs, run by make e2e in the Playwright image; its version follows @playwright/test here.",
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

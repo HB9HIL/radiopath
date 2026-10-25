@@ -90,24 +90,26 @@ Linux binaries for amd64 and arm64 and pushes the multi-arch image
 ### End-to-end tests
 
 ```sh
-make dev                   # in a second terminal: Postgres and Mailpit (http://localhost:8025) for the e2e server
-make e2e                   # builds the binary, starts it on :8081 against the database radiopath_e2e, runs Cypress
-make e2e-open              # same, interactive runner
+make e2e                   # builds the image, runs the Playwright specs against it, cleans up
 ```
 
-`e2e/e2e.sh` runs the server with one flat DEM tile (`tmp/e2e/dem`, generated),
-registration on, Mailpit as SMTP server and a fixed admin token; `e2e/cypress.config.js`
-wipes the database before each spec and creates users through the CLI. Cypress itself
-runs from the pinned `cypress/included` image (override with `CYPRESS_IMAGE`), so no
-Electron has to work on the host and `npm ci` stays small; the container joins the host
-network and mounts the repo at its own path. The specs in
-`e2e/specs` cover login, sites, antennas, links, coverage jobs, per-user
-ownership, the account page, the admin panel and the mail flows (registration,
-confirmation, password reset). Map tiles are stubbed in the browser, nothing reaches
-the tile server. The GitHub Actions workflow (`.github/workflows/ci.yml`) runs
-gofmt, vet and the unit tests, checks that the committed stylesheet is in
-order, and runs the same e2e script with PostGIS and Mailpit as
-services.
+Every service runs in its own container from the compose profile `e2e`: the
+real image (`e2e-app`, with the tiles of `tmp/testfiles`, registration on and a
+fixed admin token), PostGIS on a tmpfs, so each run starts with an empty
+database, and Mailpit. Playwright runs in the official image (its version follows
+`@playwright/test` in `e2e/package.json`) on the compose network and reaches the
+others by service name, the same on Linux, macOS and in CI. `e2e/global-setup.js`
+creates one user per spec file through the admin panel, so the files run in
+parallel; `admin.spec.js` runs last, since its maintenance mode blocks all logins.
+Map tiles are stubbed in the browser, nothing reaches the tile server.
+
+The specs in `e2e/tests` cover login, sites, antennas, links, coverage jobs,
+per-user ownership, sharing, the account page, the admin panel and the mail flows
+(registration, confirmation, password reset). A failed run leaves screenshots,
+traces and the app log in `e2e/test-results/`; open a `trace.zip` at
+https://trace.playwright.dev. The GitHub Actions workflow
+(`.github/workflows/ci.yml`) runs gofmt, vet and the unit tests, checks that the
+committed stylesheet is in order, and runs `make e2e`.
 
 ## DEM from S3
 

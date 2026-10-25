@@ -28,43 +28,14 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    services:
-      db:
-        image: imresamu/postgis:17-3.5
-        env:
-          POSTGRES_USER: radiopath
-          POSTGRES_PASSWORD: radiopath
-          POSTGRES_DB: radiopath
-        ports:
-          - 5432:5432
-      mailpit:
-        image: axllent/mailpit:v1.31.5
-        ports:
-          - 1025:1025
-          - 8025:8025
-    env:
-      E2E_DATABASE_URL: postgres://radiopath:radiopath@localhost:5432/radiopath
-      E2E_SMTP_HOST: localhost
-      E2E_MAILPIT_URL: http://localhost:8025
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: CGO_ENABLED=0 go build -o bin/radiopath ./cmd/radiopath
-      - run: npm ci --no-audit --no-fund
-      - run: e2e/e2e.sh
+      - run: make e2e
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: e2e-failure
-          path: |
-            e2e/screenshots/
-            tmp/e2e/app.log
+          path: e2e/test-results/
 
   staging-image:
     needs: [test, lint-css, e2e]

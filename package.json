@@ -1,10 +1,9 @@
 {
   "name": "radiopath-ui",
   "private": true,
-  "description": "Build tooling for the Radiopath stylesheet, plus pg for the Cypress tasks. Cypress itself runs from a container, see e2e/e2e.sh. The Go binary needs none of this; internal/web/static/app.css is committed.",
+  "description": "Build tooling for the Radiopath stylesheet, run in the node compose service (make css). The Go binary needs none of this; internal/web/static/app.css is committed.",
   "devDependencies": {
     "@tailwindcss/cli": "4.3.3",
-    "pg": "8.23.1",
     "tailwindcss": "4.3.3"
   }
 }

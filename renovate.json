@@ -22,13 +22,5 @@
             "matchPackageNames": ["/(^|/)postgis$/"],
             "allowedVersions": "/^17-/"
         }
-    ],
-    "customManagers": [
-        {
-            "customType": "regex",
-            "managerFilePatterns": ["/^e2e/e2e\\.sh$/"],
-            "matchStrings": ["CYPRESS_IMAGE:=(?<depName>cypress/included):(?<currentValue>[^}\"]+)"],
-            "datasourceTemplate": "docker"
-        }
     ]
 }

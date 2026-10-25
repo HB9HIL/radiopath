@@ -39,5 +39,51 @@ services:
     volumes:
       - ..:/src
 
+  # make e2e: the real image against its own database (fresh every run) and mail catcher; Playwright joins this network
+  e2e-db:
+    profiles: [e2e]
+    image: imresamu/postgis:17-3.5
+    environment:
+      POSTGRES_USER: radiopath
+      POSTGRES_PASSWORD: radiopath
+      POSTGRES_DB: radiopath
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "radiopath"]
+      interval: 1s
+      retries: 30
+
+  e2e-mail:
+    profiles: [e2e]
+    image: axllent/mailpit:v1.31.5
+
+  e2e-app:
+    profiles: [e2e]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      e2e-db:
+        condition: service_healthy
+      e2e-mail:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://radiopath:radiopath@e2e-db:5432/radiopath
+      RADIOPATH_DEM_DIR: /data/dem
+      RADIOPATH_CANOPY_DIR: /data/canopy
+      RADIOPATH_METRICS_LISTEN: ""
+      RADIOPATH_WORKERS: "1"
+      RADIOPATH_LOG_LEVEL: warn
+      RADIOPATH_REGISTRATION: "true"
+      RADIOPATH_SMTP_HOST: e2e-mail
+      RADIOPATH_SMTP_PORT: "1025"
+      RADIOPATH_SMTP_STARTTLS: "false"
+      RADIOPATH_MAIL_FROM: radiopath@example.test
+      RADIOPATH_BASE_URL: http://e2e-app:8080
+      RADIOPATH_ADMIN_TOKEN: e2e-only-admin-token-not-a-secret-1234
+    volumes:
+      - ../tmp/testfiles:/data:ro
+
 volumes:
   pgdata:

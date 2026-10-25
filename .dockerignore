@@ -7,4 +7,5 @@ docker/
 e2e/
 .github/
 node_modules/
+tmp/
 renovate.json
