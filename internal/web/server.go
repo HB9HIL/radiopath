@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
-	"math"
 	"net/http"
 	"net/url"
 	"path"
@@ -28,8 +27,7 @@ var templateFS embed.FS
 //go:embed static
 var staticFS embed.FS
 
-var pages = []string{"links_list", "link_form", "link_detail",
-	"coverages_list", "coverage_form", "coverage_detail",
+var pages = []string{"coverages_list", "coverage_form", "coverage_detail",
 	"account", "admin_login", "admin_users", "notfound"}
 
 type base struct {
@@ -61,11 +59,10 @@ type Server struct {
 // Handler parses the templates and builds the full route tree: public, share, optional admin, registration and mail routes, and everything else behind requireAuth.
 func (s *Server) Handler() http.Handler {
 	funcs := template.FuncMap{
-		"divKm":        func(m float64) float64 { return m / 1000 },
-		"offBoresight": link.OffBoresight,
-		"asset":        assetURL,
-		"isID":         func(id int64, ref *int64) bool { return ref != nil && *ref == id },
-		"version":      func() string { return s.Version },
+		"divKm":   func(m float64) float64 { return m / 1000 },
+		"asset":   assetURL,
+		"isID":    func(id int64, ref *int64) bool { return ref != nil && *ref == id },
+		"version": func() string { return s.Version },
 	}
 	s.tmpl = make(map[string]*template.Template, len(pages))
 	for _, p := range pages {
@@ -93,16 +90,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /logout", s.logout)
 
-	mux.HandleFunc("GET /links", s.listLinks)
-	mux.HandleFunc("GET /links/new", s.newLink)
-	mux.HandleFunc("POST /links", s.createLink)
-	mux.HandleFunc("GET /links/{id}", s.showLink)
-	mux.HandleFunc("GET /links/{id}/edit", s.editLink)
 	mux.HandleFunc("GET /links/{id}/report.pdf", s.linkReport)
-	mux.HandleFunc("POST /links/{id}", s.updateLink)
-	mux.HandleFunc("POST /links/{id}/delete", s.deleteLink)
-	mux.HandleFunc("POST /links/{id}/share", s.shareLink)
-	mux.HandleFunc("POST /links/{id}/share/delete", s.unshareLink)
 
 	mux.HandleFunc("GET /account", s.account)
 	mux.HandleFunc("POST /account/email", s.accountEmail)
@@ -142,8 +130,14 @@ func (s *Server) Handler() http.Handler {
 		root.HandleFunc("GET /admin", s.adminIndex)
 		root.Handle("/admin/", admin)
 	}
+	spa := s.spa()
+	// Shared pages are SPA routes; the API request behind each one counts against the token's limit.
+	sharedPage := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Robots-Tag", "noindex")
+		spa.ServeHTTP(w, r)
+	})
+	root.Handle("GET /s/l/{token}", sharedPage)
 	share := http.NewServeMux()
-	share.HandleFunc("GET /s/l/{token}", s.sharedLink)
 	share.HandleFunc("GET /s/l/{token}/report.pdf", s.sharedLinkReport)
 	share.HandleFunc("GET /s/c/{token}", s.sharedCoverage)
 	share.HandleFunc("GET /s/c/{token}/report.pdf", s.sharedCoverageReport)
@@ -162,7 +156,7 @@ func (s *Server) Handler() http.Handler {
 	api := s.api()
 	root.Handle("/api/", s.authenticate(api))
 	// ponytail: template routes go first until each section is ported to the SPA, then "/" serves only the SPA.
-	app, spa := s.requireAuth(mux), s.spa()
+	app := s.requireAuth(mux)
 	root.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, p := mux.Handler(r); p != "" {
 			app.ServeHTTP(w, r)
@@ -376,24 +370,6 @@ func (f *form) optID(name, label string) *int64 {
 		return nil
 	}
 	return &id
-}
-
-// optNumP is num for an optional field; nil when empty.
-func (f *form) optNumP(name, label string, lo, hi float64) *float64 {
-	if f.get(name) == "" {
-		return nil
-	}
-	v := f.num(name, label, lo, hi)
-	return &v
-}
-
-// optDeg parses an optional bearing in 0..360 and wraps 360 to 0; nil when empty.
-func (f *form) optDeg(name, label string) *float64 {
-	if f.get(name) == "" {
-		return nil
-	}
-	v := math.Mod(f.num(name, label, 0, 360), 360)
-	return &v
 }
 
 // id parses a required ID, collecting an error when invalid.

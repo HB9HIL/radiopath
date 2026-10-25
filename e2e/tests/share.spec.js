@@ -33,7 +33,7 @@ test('shows a link to a visitor without a session', async ({ page }) => {
   await dropSession(page)
   await page.goto(path)
   await expect(c(page, 'h1', 'Shared link')).toBeVisible()
-  await expect(c(page, '.alert-info', 'Shared read-only view')).toBeVisible()
+  await expect(c(page, '[role=alert]', 'Shared read-only view')).toBeVisible()
   await expect(c(page, 'div', 'Link margin, median')).toContainText(/[+-]\d+\.\d dB/)
   await expect(page.locator('.panel svg').first()).toBeVisible()
   await expect(page.locator('body')).not.toContainText(user)
@@ -52,8 +52,10 @@ test('revokes a link share', async ({ page }) => {
   await expect(c(page, 'button', 'Share')).not.toHaveClass(/btn-shared/)
 
   await dropSession(page)
-  expect(await status(page, path)).toBe(404)
+  expect(await status(page, path.replace('/s/l/', '/api/share/links/'))).toBe(404)
   expect(await status(page, `${path}/report.pdf`)).toBe(404)
+  await page.goto(path)
+  await expect(c(page, 'h1', 'Not found')).toBeVisible()
 })
 
 test('shows a computed coverage to a visitor', async ({ page }) => {

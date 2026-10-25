@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -202,11 +201,11 @@ func nonZero(v float64) *float64 {
 }
 
 // pattern loads the antenna's radiation pattern; it returns an empty (omnidirectional) lobe when id is nil or the lookup fails.
-func (s *Server) pattern(r *http.Request, owner int64, id *int64) antenna.Lobe {
+func (s *Server) pattern(ctx context.Context, owner int64, id *int64) antenna.Lobe {
 	if id == nil {
 		return antenna.Lobe{}
 	}
-	a, err := s.Store.GetAntenna(r.Context(), owner, *id)
+	a, err := s.Store.GetAntenna(ctx, owner, *id)
 	if err != nil {
 		s.Log.Warn("antenna pattern not loaded", "antenna", *id, "err", err)
 		return antenna.Lobe{}
@@ -222,20 +221,12 @@ func azimuth(deg *float64, fallback float64) float64 {
 	return *deg
 }
 
-// optNumValue formats an optional number for a form field, empty when nil.
-func optNumValue(deg *float64) string {
-	if deg == nil {
-		return ""
-	}
-	return strconv.FormatFloat(*deg, 'f', -1, 64)
-}
-
 // antennaGain returns the selected antenna's gain, or the entered gain when none is selected or it cannot be loaded.
-func (s *Server) antennaGain(r *http.Request, id *int64, entered float64) float64 {
+func (s *Server) antennaGain(ctx context.Context, owner int64, id *int64, entered float64) float64 {
 	if id == nil {
 		return entered
 	}
-	a, err := s.Store.GetAntenna(r.Context(), currentUser(r).ID, *id)
+	a, err := s.Store.GetAntenna(ctx, owner, *id)
 	if err != nil {
 		return entered
 	}
@@ -243,11 +234,11 @@ func (s *Server) antennaGain(r *http.Request, id *int64, entered float64) float6
 }
 
 // antennaName returns the name of the owner's antenna, or an empty string when id is nil or the lookup fails.
-func (s *Server) antennaName(r *http.Request, owner int64, id *int64) string {
+func (s *Server) antennaName(ctx context.Context, owner int64, id *int64) string {
 	if id == nil {
 		return ""
 	}
-	a, err := s.Store.GetAntenna(r.Context(), owner, *id)
+	a, err := s.Store.GetAntenna(ctx, owner, *id)
 	if err != nil {
 		return ""
 	}

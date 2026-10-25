@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"strings"
@@ -12,8 +13,8 @@ import (
 )
 
 // reportMap renders the static map for a PDF report; on failure it logs and returns nil so the report goes out without a map.
-func (s *Server) reportMap(r *http.Request, v tiles.View) []byte {
-	png, err := s.Tiles.Static(r.Context(), v)
+func (s *Server) reportMap(ctx context.Context, v tiles.View) []byte {
+	png, err := s.Tiles.Static(ctx, v)
 	if err != nil {
 		s.Log.Warn("report map", "err", err)
 		return nil

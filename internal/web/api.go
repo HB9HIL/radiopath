@@ -57,6 +57,7 @@ func (s *Server) registerAPI(api huma.API) {
 	s.registerMailFlows(api)
 	s.registerSites(api)
 	s.registerAntennas(api)
+	s.registerLinks(api)
 }
 
 // op returns an operation; a non-empty scope requires a logged-in user, an empty one makes it public.
@@ -78,6 +79,10 @@ func (s *Server) gate(api huma.API) func(huma.Context, func(huma.Context)) {
 		}
 		next(ctx)
 	}
+}
+
+type TokenPath struct {
+	Token string `path:"token"`
 }
 
 type requestInfo struct {
@@ -147,6 +152,15 @@ func (c *check) optNum(field, label string, v *float64, lo, hi float64) *float64
 		c.num(field, label, *v, lo, hi)
 	}
 	return v
+}
+
+// deg checks an optional bearing in 0..360 and wraps 360 to 0; nil passes.
+func (c *check) deg(field, label string, v *float64) *float64 {
+	if v == nil {
+		return nil
+	}
+	d := math.Mod(c.num(field, label, *v, 0, 360), 360)
+	return &d
 }
 
 // text checks a required value of at most maxTextLen characters and returns it.

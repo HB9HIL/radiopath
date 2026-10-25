@@ -2,16 +2,12 @@ package web
 
 import (
 	"fmt"
-	"html/template"
 	"log/slog"
-	"math"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/radiopath/radiopath/internal/antenna"
-	"github.com/radiopath/radiopath/internal/link"
 	"github.com/radiopath/radiopath/internal/plot"
 	"github.com/radiopath/radiopath/internal/store"
 )
@@ -22,28 +18,7 @@ func TestRenderPages(t *testing.T) {
 
 	site := store.Site{ID: 1, Name: "Säntis", Lat: 47.24907, Lon: 9.34317, AntennaHeightM: 25}
 	sites := []store.Site{site}
-	res := &link.Result{ClutterLossDB: 40, HasCanopy: true, CanopyPathBM: 45, VegetationLossDB: 32.6}
 	now := time.Now()
-
-	antID := int64(1)
-	pat := make([]float64, antenna.Steps)
-	for i := range pat {
-		pat[i] = 10 * (1 - math.Cos(float64(i)*math.Pi/180))
-	}
-
-	rx := -42.9
-	measured := store.LinkWithSites{SiteA: site, SiteB: site}
-	measured.ID, measured.Name = 1, "Säntis - Hoher Kasten"
-	measured.MeasuredRxDBm, measured.ClutterLossDB = &rx, 40
-	measured.ShareToken, measured.ShareExpires = "tok", &now
-
-	detail := linkDetailData{Link: measured, Result: res, SVG: template.HTML(plot.SVG(*res, 10, 10)),
-		TxAntenna: "Yagi 9el", TxAzimuthDeg: 42, Reliability: link.ReliabilityPct,
-		MeasuredDBm: rx, MeasuredDeltaDB: -2.4,
-		Path: "/links/1", ShareURL: "https://example.org/s/l/tok"}
-
-	shared := detail
-	shared.Shared, shared.Path, shared.ShareURL = true, "/s/l/tok", ""
 
 	cov := store.CoverageWithSite{Site: site}
 	cov.ID, cov.Name, cov.FreqMHz, cov.RangeM, cov.ResolutionM = 1, "Alpstein", 145.5, 30000, 100
@@ -66,27 +41,13 @@ func TestRenderPages(t *testing.T) {
 			Users:       []store.UserStat{{User: store.User{ID: 1, Name: "hb9hil", CreatedAt: now}, Sessions: 2, LastLogin: &now}},
 			PendingUser: "hb9hil", Maintenance: true}},
 		{"admin_users", adminData{base: base{Admin: true}, Errors: []string{"No such user: nope"}}},
-		{"link_form", linkFormData{Link: store.Link{TxAntennaID: &antID}, Sites: sites,
-			Antennas: []store.Antenna{{ID: 1, Name: "Sector 90"}}, Form: linkValues(store.Link{})}},
 		{"coverage_form", coverageFormData{Coverage: cov.Coverage, Sites: sites,
 			Antennas: []store.Antenna{{ID: 1, Name: "Sector 90"}}, Form: coverageValues(cov.Coverage)}},
-		{"links_list", struct {
-			base
-			Links []store.LinkWithSites
-			Sites int
-		}{}},
-		{"links_list", struct {
-			base
-			Links []store.LinkWithSites
-			Sites int
-		}{Sites: 1}},
 		{"coverages_list", struct {
 			base
 			Coverages []store.CoverageWithSite
 			Sites     int
 		}{Coverages: []store.CoverageWithSite{cov}, Sites: 1}},
-		{"link_detail", detail},
-		{"link_detail", shared},
 		{"coverage_detail", coverageDetailData{Coverage: cov, legendData: legendViews(plot.DefaultLegend()), Others: overlays,
 			TxAntenna: "Sector 90", Path: "/coverages/1", ShareURL: "https://example.org/s/c/tok",
 			ViewURL: "/coverages/1/view"}},

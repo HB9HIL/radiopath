@@ -25,7 +25,7 @@ test('analyses a link between two sites', async ({ page }) => {
 test('refuses the same site on both ends', async ({ page }) => {
   await fillLink(page, 'Loop', 'Alpha', 'Alpha')
   await c(page, 'button', 'Save').click()
-  await expect(c(page, '.alert-error li', 'Site A and B must differ')).toBeVisible()
+  await expect(c(page, '[role=alert]', 'Site A and B must differ')).toBeVisible()
 })
 
 test('lists, edits and deletes', async ({ page }) => {

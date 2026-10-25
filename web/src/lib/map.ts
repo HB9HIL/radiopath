@@ -57,3 +57,25 @@ export function sitePicker(el: HTMLElement, pick: (lat: number, lon: number) => 
 		remove: () => m.remove()
 	};
 }
+
+/** A map with both ends of a link and the line between them. */
+export function linkMap(el: HTMLElement, a: Point, b: Point): L.Map {
+	const m = baseMap(el);
+	L.marker([a.lat, a.lon]).addTo(m).bindPopup(a.name);
+	L.marker([b.lat, b.lon]).addTo(m).bindPopup(b.name);
+	L.polyline(
+		[
+			[a.lat, a.lon],
+			[b.lat, b.lon]
+		],
+		{ className: 'link-path' }
+	).addTo(m);
+	m.fitBounds(
+		[
+			[a.lat, a.lon],
+			[b.lat, b.lon]
+		],
+		{ padding: [30, 30] }
+	);
+	return m;
+}

@@ -213,3 +213,54 @@
 	fill: color-mix(in oklab, var(--cp-accent) 25%, transparent);
 	stroke: var(--cp-accent);
 }
+
+.profile-svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	font-family: 'JetBrains Mono', ui-monospace, monospace;
+	font-size: 11px;
+}
+.profile-svg .terrain {
+	fill: var(--cp-terrain);
+	stroke: var(--cp-terrain-edge);
+}
+.profile-svg .canopy {
+	fill: var(--cp-canopy);
+	stroke: none;
+}
+.profile-svg .fresnel {
+	fill: none;
+	stroke: var(--cp-fresnel);
+}
+.profile-svg .ray {
+	fill: none;
+	stroke: var(--cp-ray);
+}
+.profile-svg .mast,
+.profile-svg .axis {
+	stroke: currentColor;
+}
+.profile-svg .tick {
+	fill: currentColor;
+}
+
+/* Key/value tables of the detail pages */
+.kv {
+	@apply w-full border-collapse text-[13px];
+}
+.kv th {
+	@apply border-b px-0 py-1.5 pr-4 text-left text-xs font-medium text-muted-foreground;
+}
+.kv td {
+	@apply border-b border-(--cp-line-soft) py-1.5 pr-4 align-top;
+}
+.kv td:first-child {
+	@apply w-[45%] text-muted-foreground;
+}
+.kv tr:last-child td {
+	@apply border-b-0;
+}
+.kv .num {
+	@apply pr-0 text-right font-mono tabular-nums;
+}

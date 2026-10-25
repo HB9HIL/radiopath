@@ -1,12 +1,16 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/danielgtaylor/huma/v2"
 )
 
 const shareTTL = 30 * 24 * time.Hour
@@ -21,6 +25,18 @@ func (s *Server) shareURL(path string) string {
 	return s.BaseURL + path
 }
 
+// shareHit counts one request against the hourly limit of a share token; 429 over the limit.
+func (s *Server) shareHit(ctx context.Context, token string) error {
+	n, err := s.Store.RateHit(ctx, "share:"+token, shareWindow)
+	if err != nil {
+		return s.storeErr(err)
+	}
+	if n > shareMax {
+		return huma.Error429TooManyRequests("Too many requests for this shared page, try again later")
+	}
+	return nil
+}
+
 // shareLimit rate limits public share URLs per token (404 for a missing token, 429 over the limit) and marks responses noindex and no-store.
 func (s *Server) shareLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -29,47 +45,19 @@ func (s *Server) shareLimit(next http.Handler) http.Handler {
 			s.notFound(w, r)
 			return
 		}
-		n, err := s.Store.RateHit(r.Context(), "share:"+parts[3], shareWindow)
-		if err != nil {
-			s.fail(w, err)
-			return
-		}
-		if n > shareMax {
-			http.Error(w, "too many requests", http.StatusTooManyRequests)
+		if err := s.shareHit(r.Context(), parts[3]); err != nil {
+			var se huma.StatusError
+			if errors.As(err, &se) && se.GetStatus() == http.StatusTooManyRequests {
+				http.Error(w, "too many requests", http.StatusTooManyRequests)
+				return
+			}
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("X-Robots-Tag", "noindex")
 		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
-}
-
-// shareLink handles POST /links/{id}/share: creates a share token valid for 30 days and redirects back to the link.
-func (s *Server) shareLink(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		s.notFound(w, r)
-		return
-	}
-	if err := s.Store.ShareLink(r.Context(), currentUser(r).ID, id, randomToken(), time.Now().Add(shareTTL)); err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, fmt.Sprintf("/links/%d", id), http.StatusSeeOther)
-}
-
-// unshareLink handles POST /links/{id}/share/delete: removes the share token and redirects back to the link.
-func (s *Server) unshareLink(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		s.notFound(w, r)
-		return
-	}
-	if err := s.Store.UnshareLink(r.Context(), currentUser(r).ID, id); err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, fmt.Sprintf("/links/%d", id), http.StatusSeeOther)
 }
 
 // shareCoverage handles POST /coverages/{id}/share: creates a share token valid for 30 days and redirects back to the coverage.
@@ -100,19 +88,6 @@ func (s *Server) unshareCoverage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/coverages/%d", id), http.StatusSeeOther)
 }
 
-// sharedLink renders the public read-only link analysis for GET /s/l/{token}.
-func (s *Server) sharedLink(w http.ResponseWriter, r *http.Request) {
-	token := r.PathValue("token")
-	l, err := s.Store.GetSharedLink(r.Context(), token)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	data := s.linkAnalysis(r, l)
-	data.Shared, data.Path = true, "/s/l/"+token
-	s.render(w, http.StatusOK, "link_detail", data)
-}
-
 // sharedLinkReport serves the PDF report of a shared link.
 func (s *Server) sharedLinkReport(w http.ResponseWriter, r *http.Request) {
 	l, err := s.Store.GetSharedLink(r.Context(), r.PathValue("token"))
@@ -120,7 +95,7 @@ func (s *Server) sharedLinkReport(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	s.sendLinkReport(w, r, s.linkAnalysis(r, l))
+	s.sendLinkReport(w, r, s.linkAnalysis(r.Context(), l), "")
 }
 
 // sharedCoverage renders the public read-only coverage page; it adds only the overlays the owner released for viewing, with token-scoped image URLs.

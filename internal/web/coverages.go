@@ -156,7 +156,7 @@ func (s *Server) createCoverage(w http.ResponseWriter, r *http.Request) {
 		s.coverageForm(w, r, http.StatusUnprocessableEntity, coverageFormData{Coverage: c, Form: f.values(), Errors: f.Errors})
 		return
 	}
-	c.TxGainDBi = s.antennaGain(r, c.TxAntennaID, c.TxGainDBi)
+	c.TxGainDBi = s.antennaGain(r.Context(), currentUser(r).ID, c.TxAntennaID, c.TxGainDBi)
 	c.OwnerID = currentUser(r).ID
 	id, err := s.Store.CreateCoverage(r.Context(), c)
 	if errors.Is(err, store.ErrQuota) {
@@ -199,7 +199,7 @@ func (s *Server) updateCoverage(w http.ResponseWriter, r *http.Request) {
 		s.coverageForm(w, r, http.StatusUnprocessableEntity, coverageFormData{Coverage: c, Form: f.values(), Errors: f.Errors})
 		return
 	}
-	c.TxGainDBi = s.antennaGain(r, c.TxAntennaID, c.TxGainDBi)
+	c.TxGainDBi = s.antennaGain(r.Context(), currentUser(r).ID, c.TxAntennaID, c.TxGainDBi)
 	if err := s.Store.UpdateCoverage(r.Context(), c); err != nil {
 		s.fail(w, err)
 		return
@@ -252,7 +252,7 @@ func (s *Server) showCoverage(w http.ResponseWriter, r *http.Request) {
 // coverageDetail builds the detail data shared by the owner page and the public share page.
 func (s *Server) coverageDetail(r *http.Request, c store.CoverageWithSite, path string) coverageDetailData {
 	return coverageDetailData{Coverage: c, legendData: legendViews(legendOf(c.Coverage)), Path: path,
-		TxAntenna: s.antennaName(r, c.OwnerID, c.TxAntennaID)}
+		TxAntenna: s.antennaName(r.Context(), c.OwnerID, c.TxAntennaID)}
 }
 
 // coverageReport serves the owner's coverage as a PDF report.
@@ -272,9 +272,9 @@ func (s *Server) coverageReport(w http.ResponseWriter, r *http.Request) {
 
 // sendCoverageReport renders the PDF with map and raster (when computed) and writes it to the response.
 func (s *Server) sendCoverageReport(w http.ResponseWriter, r *http.Request, c store.CoverageWithSite, user string) {
-	in := report.Coverage{Coverage: c, TxAntenna: s.antennaName(r, c.OwnerID, c.TxAntennaID),
+	in := report.Coverage{Coverage: c, TxAntenna: s.antennaName(r.Context(), c.OwnerID, c.TxAntennaID),
 		User: user, Generated: time.Now(), View: rangeView(c), Legend: legendOf(c.Coverage)}
-	in.Map = s.reportMap(r, in.View)
+	in.Map = s.reportMap(r.Context(), in.View)
 	if c.Bounds != nil {
 		ra, err := s.Store.CoverageRaster(r.Context(), c.OwnerID, c.ID)
 		if err != nil {

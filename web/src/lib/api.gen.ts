@@ -86,6 +86,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's links with their sites */
+        get: operations["list-links"];
+        put?: never;
+        /** Create a link */
+        post: operations["create-link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One link with its path analysis */
+        get: operations["get-link"];
+        /** Replace a link */
+        put: operations["update-link"];
+        post?: never;
+        /** Delete a link */
+        delete: operations["delete-link"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/links/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Publish a link read-only for 30 days, or extend it
+         * @description An existing public URL is kept; its expiry moves to 30 days from now.
+         */
+        put: operations["share-link"];
+        post?: never;
+        /** Revoke the public URL of a link */
+        delete: operations["unshare-link"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -196,6 +254,23 @@ export interface paths {
         post: operations["create-session"];
         /** Log out and clear the session cookie */
         delete: operations["delete-session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/share/links/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A shared link with its path analysis, for anyone with the token */
+        get: operations["get-shared-link"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -360,6 +435,340 @@ export interface components {
              */
             type: string;
         };
+        Link: {
+            /**
+             * Format: double
+             * @description Extra path loss on top of the model
+             */
+            clutter_loss_db?: number;
+            /** Format: double */
+            frequency_mhz: number;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: double
+             * @description Level actually read at B
+             */
+            measured_rx_dbm?: number;
+            name: string;
+            /** @enum {string} */
+            polarization: "horizontal" | "vertical";
+            /**
+             * Format: int64
+             * @description Antenna pattern at B; omnidirectional without
+             */
+            rx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth at B; without it the antenna aims at A
+             */
+            rx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with rx_antenna_id: the antenna's gain is used
+             */
+            rx_gain_dbi?: number;
+            /** Format: double */
+            rx_line_loss_db?: number;
+            /** Format: double */
+            rx_sensitivity_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            rx_tilt_deg?: number;
+            /** @description The public read-only link; missing when not shared */
+            share?: components["schemas"]["Share"];
+            site_a: components["schemas"]["Site"];
+            /**
+             * Format: int64
+             * @description Transmitting site
+             */
+            site_a_id: number;
+            site_b: components["schemas"]["Site"];
+            /**
+             * Format: int64
+             * @description Receiving site
+             */
+            site_b_id: number;
+            /**
+             * Format: int64
+             * @description Antenna pattern at A; omnidirectional without
+             */
+            tx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth at A; without it the antenna aims at B
+             */
+            tx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with tx_antenna_id: the antenna's gain is used
+             */
+            tx_gain_dbi?: number;
+            /** Format: double */
+            tx_line_loss_db?: number;
+            /** Format: double */
+            tx_power_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            tx_tilt_deg?: number;
+        };
+        LinkAnalysis: {
+            /** Format: double */
+            bearing_deg: number;
+            /** Format: double */
+            canopy_path_a_m: number;
+            /** Format: double */
+            canopy_path_b_m: number;
+            /** Format: double */
+            clutter_loss_db: number;
+            /** Format: double */
+            distance_m: number;
+            /** Format: double */
+            eirp_dbm: number;
+            /** Format: double */
+            free_space_loss_db: number;
+            has_canopy: boolean;
+            /**
+             * Format: double
+             * @description Link margin, median
+             */
+            margin_db: number;
+            /**
+             * Format: double
+             * @description Link margin at reliability_pct of the time
+             */
+            margin_rel_db: number;
+            /** @description ITM propagation mode */
+            mode: string;
+            /**
+             * Format: double
+             * @description ITM path loss, median
+             */
+            path_loss_db: number;
+            /**
+             * Format: double
+             * @description ITM path loss at reliability_pct of the time
+             */
+            path_loss_rel_db: number;
+            /** @description Terrain profile as SVG, styled by the classes of the SPA */
+            profile_svg: string;
+            /** Format: double */
+            rx_level_dbm: number;
+            /** Format: double */
+            rx_off_boresight_deg: number;
+            /** Format: double */
+            rx_pattern_loss_db: number;
+            /** Format: double */
+            rx_takeoff_deg: number;
+            /**
+             * Format: double
+             * @description Ground elevation at A
+             */
+            terrain_a_m: number;
+            /**
+             * Format: double
+             * @description Ground elevation at B
+             */
+            terrain_b_m: number;
+            /** Format: double */
+            tx_off_boresight_deg: number;
+            /** Format: double */
+            tx_pattern_loss_db: number;
+            /** Format: double */
+            tx_takeoff_deg: number;
+            /**
+             * Format: double
+             * @description ITU-R P.833
+             */
+            vegetation_loss_db: number;
+            warnings: string[];
+            /** Format: double */
+            worst_clearance_dist_m: number;
+            /**
+             * Format: double
+             * @description Worst first Fresnel zone clearance
+             */
+            worst_clearance_pct: number;
+        };
+        LinkDetail: {
+            /** @description Missing when the calculation failed, see error */
+            analysis?: components["schemas"]["LinkAnalysis"];
+            /**
+             * Format: double
+             * @description Extra path loss on top of the model
+             */
+            clutter_loss_db?: number;
+            error?: string;
+            /** Format: double */
+            frequency_mhz: number;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: double
+             * @description Level actually read at B
+             */
+            measured_rx_dbm?: number;
+            name: string;
+            /** @enum {string} */
+            polarization: "horizontal" | "vertical";
+            /** Format: double */
+            reliability_pct: number;
+            /**
+             * Format: double
+             * @description Azimuth the antenna at B points to
+             */
+            rx_aim_deg: number;
+            /** @description Name of the antenna at B; empty for omnidirectional */
+            rx_antenna: string;
+            /**
+             * Format: int64
+             * @description Antenna pattern at B; omnidirectional without
+             */
+            rx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth at B; without it the antenna aims at A
+             */
+            rx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with rx_antenna_id: the antenna's gain is used
+             */
+            rx_gain_dbi?: number;
+            /** Format: double */
+            rx_line_loss_db?: number;
+            /** Format: double */
+            rx_sensitivity_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            rx_tilt_deg?: number;
+            /** @description The public read-only link; missing when not shared */
+            share?: components["schemas"]["Share"];
+            site_a: components["schemas"]["Site"];
+            /**
+             * Format: int64
+             * @description Transmitting site
+             */
+            site_a_id: number;
+            site_b: components["schemas"]["Site"];
+            /**
+             * Format: int64
+             * @description Receiving site
+             */
+            site_b_id: number;
+            /**
+             * Format: double
+             * @description Azimuth the antenna at A points to
+             */
+            tx_aim_deg: number;
+            /** @description Name of the antenna at A; empty for omnidirectional */
+            tx_antenna: string;
+            /**
+             * Format: int64
+             * @description Antenna pattern at A; omnidirectional without
+             */
+            tx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth at A; without it the antenna aims at B
+             */
+            tx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with tx_antenna_id: the antenna's gain is used
+             */
+            tx_gain_dbi?: number;
+            /** Format: double */
+            tx_line_loss_db?: number;
+            /** Format: double */
+            tx_power_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            tx_tilt_deg?: number;
+        };
+        LinkInput: {
+            /**
+             * Format: double
+             * @description Extra path loss on top of the model
+             */
+            clutter_loss_db?: number;
+            /** Format: double */
+            frequency_mhz: number;
+            /**
+             * Format: double
+             * @description Level actually read at B
+             */
+            measured_rx_dbm?: number;
+            name: string;
+            /** @enum {string} */
+            polarization: "horizontal" | "vertical";
+            /**
+             * Format: int64
+             * @description Antenna pattern at B; omnidirectional without
+             */
+            rx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth at B; without it the antenna aims at A
+             */
+            rx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with rx_antenna_id: the antenna's gain is used
+             */
+            rx_gain_dbi?: number;
+            /** Format: double */
+            rx_line_loss_db?: number;
+            /** Format: double */
+            rx_sensitivity_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            rx_tilt_deg?: number;
+            /**
+             * Format: int64
+             * @description Transmitting site
+             */
+            site_a_id: number;
+            /**
+             * Format: int64
+             * @description Receiving site
+             */
+            site_b_id: number;
+            /**
+             * Format: int64
+             * @description Antenna pattern at A; omnidirectional without
+             */
+            tx_antenna_id?: number;
+            /**
+             * Format: double
+             * @description Main lobe azimuth at A; without it the antenna aims at B
+             */
+            tx_azimuth_deg?: number;
+            /**
+             * Format: double
+             * @description Ignored with tx_antenna_id: the antenna's gain is used
+             */
+            tx_gain_dbi?: number;
+            /** Format: double */
+            tx_line_loss_db?: number;
+            /** Format: double */
+            tx_power_dbm: number;
+            /**
+             * Format: double
+             * @description Mechanical tilt, positive downwards
+             */
+            tx_tilt_deg?: number;
+        };
         LoginInputBody: {
             name: string;
             password: string;
@@ -421,6 +830,11 @@ export interface components {
             password: string;
             /** @description The token from the mailed link */
             token: string;
+        };
+        Share: {
+            /** Format: date-time */
+            expires_at: string;
+            url: string;
         };
         Site: {
             /**
@@ -746,6 +1160,340 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Link"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Link"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkDetail"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Link"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "share-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Share"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "unshare-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1137,6 +1885,64 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-shared-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -7,6 +7,10 @@ export type Site = Schemas['Site'];
 export type SiteInput = Schemas['SiteInput'];
 export type Antenna = Schemas['Antenna'];
 export type ManualAntennaInput = Schemas['ManualAntennaInput'];
+export type Link = Schemas['Link'];
+export type LinkInput = Schemas['LinkInput'];
+export type LinkDetail = Schemas['LinkDetail'];
+export type Share = Schemas['Share'];
 
 export const api = createClient<paths>({ baseUrl: '' });
 

@@ -9,7 +9,7 @@
 	// The last element marks sections still served as template pages: links to them need a full page load.
 	const nav = [
 		['/sites', 'Sites', 'off'],
-		['/links', 'Links', ''],
+		['/links', 'Links', 'off'],
 		['/coverages', 'Coverage', ''],
 		['/antennas', 'Antennas', 'off']
 	];
