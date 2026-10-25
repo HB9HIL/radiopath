@@ -18,7 +18,10 @@
 	// The job as the event stream reports it, ahead of the next load of the coverage.
 	let live: { state: string; since?: string; worker?: string } | null = $state(null);
 	let error: unknown = $state(null);
-	const job = $derived(live ?? (c.data ? { state: c.data.job.state, since: c.data.job.started_at ?? c.data.job.queued_at ?? undefined, worker: c.data.job.worker } : null));
+	const job = $derived(
+		live ??
+			(c.data ? { state: c.data.job.state, since: c.data.job.started_at ?? c.data.job.queued_at ?? undefined, worker: c.data.job.worker } : null)
+	);
 	const busy = $derived(job?.state === 'queued' || job?.state === 'running');
 
 	/** Reloads the coverage and the list. */

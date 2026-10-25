@@ -1,0 +1,7 @@
+# generated: make api, the shadcn-svelte CLI, npm
+openapi.json
+src/lib/api.gen.ts
+src/lib/components/ui/
+package-lock.json
+.svelte-kit/
+node_modules/

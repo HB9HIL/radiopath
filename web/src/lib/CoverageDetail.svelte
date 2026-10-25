@@ -35,7 +35,9 @@
 	<Button variant="outline" href="{path}/report.pdf" target="_blank" rel="noopener" data-sveltekit-reload>Print report</Button>
 </PageHead>
 {#if shared}
-	<Alert.Root class="mb-4">Shared read-only view{#if d.share}, valid until {day(d.share.expires_at)}{/if}.</Alert.Root>
+	<Alert.Root class="mb-4"
+		>Shared read-only view{#if d.share}, valid until {day(d.share.expires_at)}{/if}.</Alert.Root
+	>
 {/if}
 {@render status?.()}
 {#if d.note}<Alert.Root class="mb-4 border-warn/50 text-warn">{d.note}</Alert.Root>{/if}
@@ -88,7 +90,9 @@
 				</tbody>
 			</table>
 		{:else if d.job.state === 'idle'}
-			<p class="text-muted-foreground">Not computed yet.{#if !shared}&nbsp;Press Compute.{/if}</p>
+			<p class="text-muted-foreground">
+				Not computed yet.{#if !shared}&nbsp;Press Compute.{/if}
+			</p>
 		{/if}
 
 		<h2 class="mt-6 mb-2 text-xs font-medium text-muted-foreground">Legend (link margin)</h2>

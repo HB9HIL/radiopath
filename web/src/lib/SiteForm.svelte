@@ -20,14 +20,16 @@
 
 	$effect(() => {
 		picker = sitePicker(el, (lat, lon) => ((v.lat = String(lat)), (v.lon = String(lon))));
-		const lat = parseNum(initial.lat), lon = parseNum(initial.lon);
+		const lat = parseNum(initial.lat),
+			lon = parseNum(initial.lon);
 		if (!isNaN(lat) && !isNaN(lon)) picker.place(lat, lon);
 		return () => picker.remove();
 	});
 
 	/** Moves the marker to coordinates typed into the fields. */
 	function typed() {
-		const lat = parseNum(v.lat), lon = parseNum(v.lon);
+		const lat = parseNum(v.lat),
+			lon = parseNum(v.lon);
 		if (!isNaN(lat) && !isNaN(lon)) picker.place(lat, lon);
 	}
 
@@ -56,8 +58,12 @@
 <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
 	<form class="grid gap-3 rounded-lg border bg-card p-4" onsubmit={submit}>
 		<Field label="Name"><Input name="name" required bind:value={v.name} /></Field>
-		<Field label="Latitude (deg, WGS84)"><Input class="font-mono" name="lat" inputmode="decimal" required bind:value={v.lat} onchange={typed} /></Field>
-		<Field label="Longitude (deg, WGS84)"><Input class="font-mono" name="lon" inputmode="decimal" required bind:value={v.lon} onchange={typed} /></Field>
+		<Field label="Latitude (deg, WGS84)"
+			><Input class="font-mono" name="lat" inputmode="decimal" required bind:value={v.lat} onchange={typed} /></Field
+		>
+		<Field label="Longitude (deg, WGS84)"
+			><Input class="font-mono" name="lon" inputmode="decimal" required bind:value={v.lon} onchange={typed} /></Field
+		>
 		<Field label="Antenna height above ground (m)">
 			<Input class="font-mono" name="antenna_height_m" inputmode="decimal" required bind:value={v.antenna_height_m} />
 		</Field>

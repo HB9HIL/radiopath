@@ -54,7 +54,9 @@
 				<!-- svelte-ignore a11y_autofocus -->
 				<Input name="password" type="password" autocomplete="new-password" minlength={10} autofocus required bind:value={password} />
 			</Field>
-			<Field label="Repeat"><Input name="password2" type="password" autocomplete="new-password" minlength={10} required bind:value={password2} /></Field>
+			<Field label="Repeat"
+				><Input name="password2" type="password" autocomplete="new-password" minlength={10} required bind:value={password2} /></Field
+			>
 			<div><Button type="submit" disabled={busy}>Set password</Button></div>
 		</form>
 		<p class="mt-3 text-xs text-muted-foreground">At least 10 characters. Every open session of the account is logged out.</p>

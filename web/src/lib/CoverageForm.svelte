@@ -28,16 +28,40 @@
 	export function coverageValues(c?: Coverage): CoverageValues {
 		if (!c)
 			return {
-				name: '', site_id: '', frequency_mhz: '145', polarization: 'vertical', tx_power_dbm: '40', tx_gain_dbi: '0', tx_line_loss_db: '0',
-				tx_antenna_id: '', tx_azimuth_deg: '0', tx_tilt_deg: '0', rx_height_m: '2', rx_gain_dbi: '0', rx_line_loss_db: '0',
-				rx_sensitivity_dbm: '-120', range_km: '30', resolution_m: '100'
+				name: '',
+				site_id: '',
+				frequency_mhz: '145',
+				polarization: 'vertical',
+				tx_power_dbm: '40',
+				tx_gain_dbi: '0',
+				tx_line_loss_db: '0',
+				tx_antenna_id: '',
+				tx_azimuth_deg: '0',
+				tx_tilt_deg: '0',
+				rx_height_m: '2',
+				rx_gain_dbi: '0',
+				rx_line_loss_db: '0',
+				rx_sensitivity_dbm: '-120',
+				range_km: '30',
+				resolution_m: '100'
 			};
 		return {
-			name: c.name, site_id: str(c.site_id), frequency_mhz: str(c.frequency_mhz), polarization: c.polarization,
-			tx_power_dbm: str(c.tx_power_dbm), tx_gain_dbi: str(c.tx_gain_dbi ?? 0), tx_line_loss_db: str(c.tx_line_loss_db ?? 0),
-			tx_antenna_id: str(c.tx_antenna_id), tx_azimuth_deg: str(c.tx_azimuth_deg ?? 0), tx_tilt_deg: str(c.tx_tilt_deg ?? 0),
-			rx_height_m: str(c.rx_height_m), rx_gain_dbi: str(c.rx_gain_dbi ?? 0), rx_line_loss_db: str(c.rx_line_loss_db ?? 0),
-			rx_sensitivity_dbm: str(c.rx_sensitivity_dbm), range_km: str(c.range_km), resolution_m: str(c.resolution_m)
+			name: c.name,
+			site_id: str(c.site_id),
+			frequency_mhz: str(c.frequency_mhz),
+			polarization: c.polarization,
+			tx_power_dbm: str(c.tx_power_dbm),
+			tx_gain_dbi: str(c.tx_gain_dbi ?? 0),
+			tx_line_loss_db: str(c.tx_line_loss_db ?? 0),
+			tx_antenna_id: str(c.tx_antenna_id),
+			tx_azimuth_deg: str(c.tx_azimuth_deg ?? 0),
+			tx_tilt_deg: str(c.tx_tilt_deg ?? 0),
+			rx_height_m: str(c.rx_height_m),
+			rx_gain_dbi: str(c.rx_gain_dbi ?? 0),
+			rx_line_loss_db: str(c.rx_line_loss_db ?? 0),
+			rx_sensitivity_dbm: str(c.rx_sensitivity_dbm),
+			range_km: str(c.range_km),
+			resolution_m: str(c.resolution_m)
 		};
 	}
 </script>
@@ -71,9 +95,18 @@
 	});
 
 	const labels: Partial<Record<keyof CoverageValues, string>> = {
-		frequency_mhz: 'Frequency', tx_power_dbm: 'TX power', tx_gain_dbi: 'TX gain', tx_line_loss_db: 'TX line loss',
-		tx_azimuth_deg: 'TX azimuth', tx_tilt_deg: 'TX tilt', rx_height_m: 'RX height', rx_gain_dbi: 'RX gain',
-		rx_line_loss_db: 'RX line loss', rx_sensitivity_dbm: 'RX sensitivity', range_km: 'Range', resolution_m: 'Resolution'
+		frequency_mhz: 'Frequency',
+		tx_power_dbm: 'TX power',
+		tx_gain_dbi: 'TX gain',
+		tx_line_loss_db: 'TX line loss',
+		tx_azimuth_deg: 'TX azimuth',
+		tx_tilt_deg: 'TX tilt',
+		rx_height_m: 'RX height',
+		rx_gain_dbi: 'RX gain',
+		rx_line_loss_db: 'RX line loss',
+		rx_sensitivity_dbm: 'RX sensitivity',
+		range_km: 'Range',
+		resolution_m: 'Resolution'
 	};
 
 	/** Turns the text fields into the API body; empty optional fields count as 0, fields that are no number give one message each. */

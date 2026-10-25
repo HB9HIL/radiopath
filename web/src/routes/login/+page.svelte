@@ -105,8 +105,8 @@
 	<div class="text-[13px] leading-relaxed text-muted-foreground md:mt-11">
 		<h2 class="text-xs font-medium text-foreground">What is Radiopath?</h2>
 		<p class="mt-2">
-			Radiopath is an independent clone of <i>Radio Mobile Online</i> (Roger Coudé, VE2DBE): radio link and coverage planning for amateur radio,
-			rf links and similar point-to-point or point-to-area systems.
+			Radiopath is an independent clone of <i>Radio Mobile Online</i> (Roger Coudé, VE2DBE): radio link and coverage planning for amateur radio, rf links
+			and similar point-to-point or point-to-area systems.
 		</p>
 		<ul class="mt-3 list-disc space-y-1 pl-4">
 			<li>
@@ -119,8 +119,8 @@
 			<li><b class="text-foreground">Sharing</b>: publish a calculation as a read-only link that works without an account, for 30 days.</li>
 		</ul>
 		<p class="mt-4 rounded-lg border px-4 py-3">
-			<b class="text-foreground">Under development.</b> The models are still being checked against measured links, so results can be off and may
-			change between versions. Accounts and stored projects can be reset without notice.
+			<b class="text-foreground">Under development.</b> The models are still being checked against measured links, so results can be off and may change
+			between versions. Accounts and stored projects can be reset without notice.
 		</p>
 	</div>
 </div>

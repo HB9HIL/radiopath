@@ -2,7 +2,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
 
-	export type ManualValues = { name: string; gain_dbi: string; beamwidth_deg: string; v_beamwidth_deg: string; front_back_db: string; freq_mhz: string };
+	export type ManualValues = {
+		name: string;
+		gain_dbi: string;
+		beamwidth_deg: string;
+		v_beamwidth_deg: string;
+		front_back_db: string;
+		freq_mhz: string;
+	};
 	let { v = $bindable() }: { v: ManualValues } = $props();
 </script>
 

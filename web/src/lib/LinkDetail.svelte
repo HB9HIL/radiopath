@@ -23,7 +23,9 @@
 	<Button variant="outline" href="{path}/report.pdf" target="_blank" rel="noopener" data-sveltekit-reload>Print report</Button>
 </PageHead>
 {#if shared}
-	<Alert.Root class="mb-4">Shared read-only view{#if d.share}, valid until {day(d.share.expires_at)}{/if}.</Alert.Root>
+	<Alert.Root class="mb-4"
+		>Shared read-only view{#if d.share}, valid until {day(d.share.expires_at)}{/if}.</Alert.Root
+	>
 {/if}
 <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
 	<div>
@@ -43,7 +45,10 @@
 					<td class="font-mono">{d.site_b.antenna_height_m.toFixed(1)} m</td>
 				</tr>
 				{#if r}
-					<tr><td>Ground elevation</td><td class="font-mono">{r.terrain_a_m.toFixed(0)} m</td><td class="font-mono">{r.terrain_b_m.toFixed(0)} m</td></tr>
+					<tr
+						><td>Ground elevation</td><td class="font-mono">{r.terrain_a_m.toFixed(0)} m</td><td class="font-mono">{r.terrain_b_m.toFixed(0)} m</td
+						></tr
+					>
 				{/if}
 			</tbody>
 		</table>
@@ -139,7 +144,9 @@
 			</table>
 			{#if r.warnings.length}
 				<Alert.Root class="mt-3 border-warn/50 text-warn">
-					<ul class="list-disc pl-4">{#each r.warnings as w (w)}<li>{w}</li>{/each}</ul>
+					<ul class="list-disc pl-4">
+						{#each r.warnings as w (w)}<li>{w}</li>{/each}
+					</ul>
 				</Alert.Root>
 			{/if}
 		{/if}

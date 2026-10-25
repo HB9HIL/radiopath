@@ -60,7 +60,9 @@
 					<Input class="max-w-120 font-mono text-xs" readonly value={share.url} onfocus={(e) => e.currentTarget.select()} />
 					<Button variant="outline" onclick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
 				</div>
-				<p class="mt-2 text-xs text-muted-foreground">Anyone with this link sees this page without an account, until {day(share.expires_at)}.{hint}</p>
+				<p class="mt-2 text-xs text-muted-foreground">
+					Anyone with this link sees this page without an account, until {day(share.expires_at)}.{hint}
+				</p>
 			</div>
 			<div class="flex flex-wrap gap-3">
 				<Button variant="outline" onclick={() => run(create)}>Extend by 30 days</Button>

@@ -31,18 +31,46 @@
 	export function linkValues(l?: Link): LinkValues {
 		if (!l)
 			return {
-				name: '', site_a_id: '', site_b_id: '', frequency_mhz: '145', clutter_loss_db: '0', polarization: 'vertical',
-				tx_power_dbm: '40', tx_gain_dbi: '0', tx_line_loss_db: '0', tx_antenna_id: '', tx_azimuth_deg: '', tx_tilt_deg: '0',
-				rx_gain_dbi: '0', rx_line_loss_db: '0', rx_sensitivity_dbm: '-120', rx_antenna_id: '', rx_azimuth_deg: '', rx_tilt_deg: '0',
+				name: '',
+				site_a_id: '',
+				site_b_id: '',
+				frequency_mhz: '145',
+				clutter_loss_db: '0',
+				polarization: 'vertical',
+				tx_power_dbm: '40',
+				tx_gain_dbi: '0',
+				tx_line_loss_db: '0',
+				tx_antenna_id: '',
+				tx_azimuth_deg: '',
+				tx_tilt_deg: '0',
+				rx_gain_dbi: '0',
+				rx_line_loss_db: '0',
+				rx_sensitivity_dbm: '-120',
+				rx_antenna_id: '',
+				rx_azimuth_deg: '',
+				rx_tilt_deg: '0',
 				measured_rx_dbm: ''
 			};
 		return {
-			name: l.name, site_a_id: str(l.site_a_id), site_b_id: str(l.site_b_id), frequency_mhz: str(l.frequency_mhz),
-			clutter_loss_db: str(l.clutter_loss_db ?? 0), polarization: l.polarization, tx_power_dbm: str(l.tx_power_dbm),
-			tx_gain_dbi: str(l.tx_gain_dbi ?? 0), tx_line_loss_db: str(l.tx_line_loss_db ?? 0), tx_antenna_id: str(l.tx_antenna_id),
-			tx_azimuth_deg: str(l.tx_azimuth_deg), tx_tilt_deg: str(l.tx_tilt_deg ?? 0), rx_gain_dbi: str(l.rx_gain_dbi ?? 0),
-			rx_line_loss_db: str(l.rx_line_loss_db ?? 0), rx_sensitivity_dbm: str(l.rx_sensitivity_dbm), rx_antenna_id: str(l.rx_antenna_id),
-			rx_azimuth_deg: str(l.rx_azimuth_deg), rx_tilt_deg: str(l.rx_tilt_deg ?? 0), measured_rx_dbm: str(l.measured_rx_dbm)
+			name: l.name,
+			site_a_id: str(l.site_a_id),
+			site_b_id: str(l.site_b_id),
+			frequency_mhz: str(l.frequency_mhz),
+			clutter_loss_db: str(l.clutter_loss_db ?? 0),
+			polarization: l.polarization,
+			tx_power_dbm: str(l.tx_power_dbm),
+			tx_gain_dbi: str(l.tx_gain_dbi ?? 0),
+			tx_line_loss_db: str(l.tx_line_loss_db ?? 0),
+			tx_antenna_id: str(l.tx_antenna_id),
+			tx_azimuth_deg: str(l.tx_azimuth_deg),
+			tx_tilt_deg: str(l.tx_tilt_deg ?? 0),
+			rx_gain_dbi: str(l.rx_gain_dbi ?? 0),
+			rx_line_loss_db: str(l.rx_line_loss_db ?? 0),
+			rx_sensitivity_dbm: str(l.rx_sensitivity_dbm),
+			rx_antenna_id: str(l.rx_antenna_id),
+			rx_azimuth_deg: str(l.rx_azimuth_deg),
+			rx_tilt_deg: str(l.rx_tilt_deg ?? 0),
+			measured_rx_dbm: str(l.measured_rx_dbm)
 		};
 	}
 </script>
@@ -78,9 +106,18 @@
 	});
 
 	const labels: Partial<Record<keyof LinkValues, string>> = {
-		frequency_mhz: 'Frequency', clutter_loss_db: 'Extra path loss', tx_power_dbm: 'TX power', tx_gain_dbi: 'TX gain',
-		tx_line_loss_db: 'TX line loss', tx_azimuth_deg: 'TX azimuth', tx_tilt_deg: 'TX tilt', rx_gain_dbi: 'RX gain',
-		rx_line_loss_db: 'RX line loss', rx_sensitivity_dbm: 'RX sensitivity', rx_azimuth_deg: 'RX azimuth', rx_tilt_deg: 'RX tilt',
+		frequency_mhz: 'Frequency',
+		clutter_loss_db: 'Extra path loss',
+		tx_power_dbm: 'TX power',
+		tx_gain_dbi: 'TX gain',
+		tx_line_loss_db: 'TX line loss',
+		tx_azimuth_deg: 'TX azimuth',
+		tx_tilt_deg: 'TX tilt',
+		rx_gain_dbi: 'RX gain',
+		rx_line_loss_db: 'RX line loss',
+		rx_sensitivity_dbm: 'RX sensitivity',
+		rx_azimuth_deg: 'RX azimuth',
+		rx_tilt_deg: 'RX tilt',
 		measured_rx_dbm: 'Measured RX level'
 	};
 
@@ -138,7 +175,9 @@
 
 <FormErrors {error} />
 {#if sites.data && sites.data.length < 2}
-	<Alert.Root class="mb-4 border-warn/50 text-warn"><span>Create at least two <a class="underline" href="/sites/new">sites</a> first.</span></Alert.Root>
+	<Alert.Root class="mb-4 border-warn/50 text-warn"
+		><span>Create at least two <a class="underline" href="/sites/new">sites</a> first.</span></Alert.Root
+	>
 {/if}
 {#snippet num(name: keyof LinkValues, label: string, placeholder = '')}
 	<Field wide {label}><Input class="max-w-68 font-mono" {name} inputmode="decimal" {placeholder} bind:value={v[name]} /></Field>
@@ -215,7 +254,9 @@
 	<fieldset class="grid gap-3">
 		<legend class="mb-2 w-full border-b pb-1 text-xs font-medium text-muted-foreground">Measurement</legend>
 		{@render num('measured_rx_dbm', 'Measured RX level (dBm)', 'optional')}
-		<p class="text-xs text-muted-foreground">The level actually read at site B once the link is up. The detail page shows how far the prediction is off.</p>
+		<p class="text-xs text-muted-foreground">
+			The level actually read at site B once the link is up. The detail page shows how far the prediction is off.
+		</p>
 	</fieldset>
 	<div class="flex items-center gap-3">
 		<Button type="submit" disabled={busy}>Save</Button>

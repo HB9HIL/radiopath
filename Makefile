@@ -12,7 +12,7 @@ WEB := $(NODE_RUN) -w /src/web node
 # The image follows @playwright/test in e2e/package.json, the one place Renovate updates.
 PLAYWRIGHT_IMAGE := mcr.microsoft.com/playwright:v$(shell sed -n 's/.*"@playwright\/test": "\([^"]*\)".*/\1/p' e2e/package.json)-noble
 
-.PHONY: dev test vet build docker web check api e2e e2e-run FORCE
+.PHONY: dev test vet build docker web check format api e2e e2e-run FORCE
 
 .env:
 	cp .env.example .env
@@ -57,8 +57,13 @@ web: web/node_modules
 internal/webui/dist/index.html:
 	mkdir -p internal/webui/dist && touch $@
 
+# svelte-check and the Prettier check CI runs; make format fixes the latter.
 check: web/node_modules
 	$(WEB) npm run check
+	$(WEB) npm run lint
+
+format: web/node_modules
+	$(WEB) npm run format
 
 # The OpenAPI description and the TypeScript types the SPA builds on; run after changing an API operation and commit both.
 api: web/node_modules internal/webui/dist/index.html

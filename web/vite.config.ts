@@ -6,8 +6,7 @@ import { defineConfig } from 'vite';
 const backend = process.env.BACKEND ?? 'http://localhost:8080';
 
 // Everything the Go server answers itself.
-const goPaths =
-	'^/(api|admin|tiles|healthz|readyz|robots\\.txt)(/|$)|^/(links|coverages|s)/.+\\.(png|pdf)(\\?|$)|^/coverages/\\d+/events';
+const goPaths = '^/(api|admin|tiles|healthz|readyz|robots\\.txt)(/|$)|^/(links|coverages|s)/.+\\.(png|pdf)(\\?|$)|^/coverages/\\d+/events';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],

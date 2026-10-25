@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - The Tailwind build of the server-rendered pages (`make css`, `internal/web/ui`, the CI job `lint-css`) (by @HB9HIL)
 
+### Chore
+- Prettier formats TypeScript and Svelte (`make format`), checked by `make check` and in CI (by @HB9HIL)
+
 ## [1.2.8] - 2026-10-25
 
 ### Fixed

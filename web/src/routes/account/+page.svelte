@@ -78,7 +78,9 @@
 			<Field label="New password">
 				<Input name="password" type="password" autocomplete="new-password" minlength={10} required bind:value={password} />
 			</Field>
-			<Field label="Repeat"><Input name="password2" type="password" autocomplete="new-password" minlength={10} required bind:value={password2} /></Field>
+			<Field label="Repeat"
+				><Input name="password2" type="password" autocomplete="new-password" minlength={10} required bind:value={password2} /></Field
+			>
 			<div><Button type="submit">Change password</Button></div>
 		</form>
 		<p class="mt-2 text-xs text-muted-foreground">At least 10 characters. Changing it logs out every other device.</p>

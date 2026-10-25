@@ -26,7 +26,13 @@
 
 	/** Turns the text fields into the API body; fields that are no number give one message each. */
 	function manualBody(v: ManualValues): ManualAntennaInput {
-		const labels = { gain_dbi: 'Gain', beamwidth_deg: 'Beamwidth', v_beamwidth_deg: 'Vertical beamwidth', front_back_db: 'Front-to-back', freq_mhz: 'Frequency' } as const;
+		const labels = {
+			gain_dbi: 'Gain',
+			beamwidth_deg: 'Beamwidth',
+			v_beamwidth_deg: 'Vertical beamwidth',
+			front_back_db: 'Front-to-back',
+			freq_mhz: 'Frequency'
+		} as const;
 		const optional = new Set(['v_beamwidth_deg', 'front_back_db', 'freq_mhz']);
 		const n: Record<string, number | undefined> = {};
 		const nan: string[] = [];
@@ -148,7 +154,8 @@
 						<Table.Row>
 							<Table.Cell class="w-28">{@html a.pattern_svg}</Table.Cell>
 							<Table.Cell class="w-28">
-								{#if a.elevation_svg}{@html a.elevation_svg}{:else}<span class="text-muted-foreground" title="mirrors the azimuth cut">&mdash;</span>{/if}
+								{#if a.elevation_svg}{@html a.elevation_svg}{:else}<span class="text-muted-foreground" title="mirrors the azimuth cut">&mdash;</span
+									>{/if}
 							</Table.Cell>
 							<Table.Cell>
 								{a.name}{#if a.source}<br /><span class="font-mono text-xs text-muted-foreground">{a.source}</span>{/if}
@@ -165,7 +172,9 @@
 						</Table.Row>
 					{:else}
 						<Table.Row>
-							<Table.Cell colspan={7} class="py-6 text-center text-muted-foreground">No antennas yet. Upload an MSI Planet file to get started.</Table.Cell>
+							<Table.Cell colspan={7} class="py-6 text-center text-muted-foreground"
+								>No antennas yet. Upload an MSI Planet file to get started.</Table.Cell
+							>
 						</Table.Row>
 					{/each}
 				</Table.Body>

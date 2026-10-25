@@ -61,7 +61,14 @@
 		if (n !== seq) return;
 		dropComposite();
 		compositeSrc = URL.createObjectURL(blob);
-		composite = L.imageOverlay(compositeSrc, [[b[0], b[1]], [b[2], b[3]]], { opacity: opacity / 100 }).addTo(m);
+		composite = L.imageOverlay(
+			compositeSrc,
+			[
+				[b[0], b[1]],
+				[b[2], b[3]]
+			],
+			{ opacity: opacity / 100 }
+		).addTo(m);
 		if (base) m.removeLayer(base);
 	}
 
@@ -92,7 +99,14 @@
 		L.circle(site, { radius: d.range_km * 1000, className: 'range-circle', fill: false }).addTo(circleLayer);
 		if (d.image_url && d.bounds) {
 			const b = d.bounds;
-			base = L.imageOverlay(d.image_url, [[b.south, b.west], [b.north, b.east]], { opacity: opacity / 100 }).addTo(m);
+			base = L.imageOverlay(
+				d.image_url,
+				[
+					[b.south, b.west],
+					[b.north, b.east]
+				],
+				{ opacity: opacity / 100 }
+			).addTo(m);
 		}
 		for (const id of ticked()) mark(id);
 		if (ticked().length) refresh();
@@ -109,7 +123,17 @@
 	<div class="mt-3 rounded-lg border bg-card p-3">
 		<div class="flex flex-wrap items-center gap-3">
 			<label class="text-xs text-muted-foreground" for="opacity">Raster opacity</label>
-			<input class="w-40 accent-primary" id="opacity" type="range" min="10" max="100" step="5" bind:value={opacity} oninput={applyOpacity} onchange={store} />
+			<input
+				class="w-40 accent-primary"
+				id="opacity"
+				type="range"
+				min="10"
+				max="100"
+				step="5"
+				bind:value={opacity}
+				oninput={applyOpacity}
+				onchange={store}
+			/>
 			<span class="font-mono text-xs">{opacity} %</span>
 			<label class="flex items-center gap-2 text-xs text-muted-foreground">
 				<input

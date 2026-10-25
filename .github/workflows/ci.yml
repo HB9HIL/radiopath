@@ -83,6 +83,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run api && git diff --exit-code src/lib/api.gen.ts || { echo "api.gen.ts is stale, run 'make api' and commit"; exit 1; }
       - run: npm run check
+      - run: npm run lint || { echo "run 'make format' and commit"; exit 1; }
 
   web:
     runs-on: ubuntu-latest

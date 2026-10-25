@@ -80,7 +80,8 @@ and the Vite dev server of the SvelteKit app in `web/` in the foreground. Vite p
 server answers (`/api`, `/admin`, tiles, images, reports) to it. Node only runs
 in the `node` and `vite` compose services; the host needs Go and Docker, nothing
 else. `make web` builds the SPA into `internal/webui/dist`, which the binary
-embeds; `make check` type-checks it. `go vet` and `go test` only need the empty
+embeds; `make check` type-checks it and checks the formatting, `make format`
+formats TypeScript and Svelte with Prettier. `go vet` and `go test` only need the empty
 placeholder that `make test` and `make vet` create. After changing an API
 operation run `make api`: it writes `web/openapi.json` (`radiopath openapi`)
 and the TypeScript types `web/src/lib/api.gen.ts`; commit both.
@@ -88,8 +89,8 @@ and the TypeScript types `web/src/lib/api.gen.ts`; commit both.
 CI (`.github/workflows/ci.yml`) runs gofmt, vet, staticcheck (`go tool
 staticcheck ./...`) and the unit tests, govulncheck, `scripts/funcdoc.py` (every
 function needs a doc comment, Go and TypeScript), whether the OpenAPI
-description and its TypeScript types are current, svelte-check and the e2e
-specs. It builds the SPA and with it the static Linux binaries for amd64 and
+description and its TypeScript types are current, svelte-check, Prettier and
+the e2e specs. It builds the SPA and with it the static Linux binaries for amd64 and
 arm64 once: e2e tests the amd64 one, `docker/ci.Dockerfile` packs both into the multi-arch image
 `ghcr.io/radiopath/radiopath:<sha>`, tagged `staging` on main.
 

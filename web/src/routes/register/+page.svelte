@@ -45,7 +45,9 @@
 				<Input name="name" autocomplete="username" autofocus required bind:value={name} />
 			</Field>
 			<Field label="Email"><Input name="email" type="email" autocomplete="email" required bind:value={email} /></Field>
-			<Field label="Password"><Input name="password" type="password" autocomplete="new-password" minlength={10} required bind:value={password} /></Field>
+			<Field label="Password"
+				><Input name="password" type="password" autocomplete="new-password" minlength={10} required bind:value={password} /></Field
+			>
 			<Field label="Repeat password">
 				<Input name="password2" type="password" autocomplete="new-password" minlength={10} required bind:value={password2} />
 			</Field>
@@ -55,8 +57,8 @@
 			</div>
 		</form>
 		<p class="mt-3 text-xs text-muted-foreground">
-			3 to 32 characters for the name (letters, digits, . _ -), at least 10 for the password. We mail a confirmation link to the address; the
-			account opens once you follow it.
+			3 to 32 characters for the name (letters, digits, . _ -), at least 10 for the password. We mail a confirmation link to the address; the account
+			opens once you follow it.
 		</p>
 	{/if}
 </div>
