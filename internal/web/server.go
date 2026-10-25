@@ -7,6 +7,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -16,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/radiopath/radiopath/internal/link"
 	"github.com/radiopath/radiopath/internal/mail"
@@ -74,10 +78,10 @@ func (s *Server) Handler() http.Handler {
 
 	root := http.NewServeMux()
 	user := func(h http.HandlerFunc) http.Handler { return s.requireUser(h) }
-	root.Handle("GET /links/{id}/report.pdf", user(s.linkReport))
-	root.Handle("GET /coverages/{id}/report.pdf", user(s.coverageReport))
+	root.Handle("GET /links/{id}/report.pdf", user(s.computeLimited(s.linkReport)))
+	root.Handle("GET /coverages/{id}/report.pdf", user(s.computeLimited(s.coverageReport)))
 	root.Handle("GET /coverages/{id}/image.png", user(s.coverageImage))
-	root.Handle("GET /coverages/{id}/composite.png", user(s.coverageComposite))
+	root.Handle("GET /coverages/{id}/composite.png", user(s.computeLimited(s.coverageComposite)))
 	root.Handle("GET /coverages/{id}/events", user(s.coverageEvents))
 
 	if s.adminEnabled() {
@@ -188,6 +192,41 @@ func (s *Server) spa() http.Handler {
 		}
 		files.ServeHTTP(w, r)
 	})
+}
+
+const (
+	computeWindow  = time.Minute
+	computeUserMax = 60
+)
+
+// computeHit counts one expensive request of user (path analysis, report, raster merge) and answers 429 over
+// computeUserMax per minute, so a single account cannot keep the CPUs busy.
+func (s *Server) computeHit(ctx context.Context, user int64) error {
+	n, err := s.Store.RateHit(ctx, fmt.Sprintf("compute:user:%d", user), computeWindow)
+	if err != nil {
+		return s.storeErr(err)
+	}
+	if n > computeUserMax {
+		s.Log.Warn("compute rate limited", "user", user)
+		return huma.Error429TooManyRequests("Too many calculations, try again in a minute.")
+	}
+	return nil
+}
+
+// computeLimited puts computeHit in front of a binary route of the logged-in user.
+func (s *Server) computeLimited(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := s.computeHit(r.Context(), currentUser(r).ID); err != nil {
+			var se huma.StatusError
+			if errors.As(err, &se) && se.GetStatus() == http.StatusTooManyRequests {
+				http.Error(w, "too many requests", http.StatusTooManyRequests)
+				return
+			}
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		next(w, r)
+	}
 }
 
 // readyz answers GET /readyz with 200 only if the database, the DEM data and the tile cache are usable, otherwise 503.

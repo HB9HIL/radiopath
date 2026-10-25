@@ -33,7 +33,8 @@ Every error of the JSON API is an RFC 7807 problem (`application/problem+json`) 
 `detail`. Invalid input answers 422 with one entry per field in `errors[]`, for example
 `{"location": "body.lat", "message": "Latitude: must be between -90 and 90"}`; checks across fields use the
 location `body`. 401 means no session, 404 also covers objects of other users, 409 a conflict (a site still in
-use, a taken name), 429 a rate limit, 503 maintenance mode. The public account operations never tell whether a
+use, a taken name), 429 a rate limit (`GET /api/links/{id}`, the reports and `composite.png` share 60 per user
+per minute), 503 maintenance mode. The public account operations never tell whether a
 name or an address exists: registration answers 204 either way and says what happened only in the mail to that
 address. A failed calculation reports a fixed reason (`No terrain data for this area.`, `Calculation failed.`);
 the underlying error is only in the log.

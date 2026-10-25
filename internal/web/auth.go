@@ -28,12 +28,13 @@ const (
 	bcryptCost       = 12
 	maxPasswordBytes = 72 // bcrypt rejects longer input instead of truncating
 
-	loginWindow    = 15 * time.Minute
-	loginIPMax     = 20
-	loginPairMax   = 5   // per name and IP: one attacker cannot lock the owner out from elsewhere
-	loginUserMax   = 100 // per name from all IPs: caps guessing spread over many addresses
-	registerWindow = time.Hour
-	registerIPMax  = 5
+	loginWindow     = 15 * time.Minute
+	loginIPMax      = 20
+	loginPairMax    = 5   // per name and IP: one attacker cannot lock the owner out from elsewhere
+	loginUserMax    = 100 // per name from all IPs: caps guessing spread over many addresses
+	registerWindow  = time.Hour
+	registerIPMax   = 5
+	registerMailMax = 3 // mails per address, so registering cannot flood a mailbox from many IPs
 )
 
 // clientIP returns the caller's IP; behind a trusted proxy it takes the last X-Forwarded-For entry, which is the one our proxy appended.
@@ -334,6 +335,13 @@ func (s *Server) register(ctx context.Context, in *RegisterInput) (*struct{}, er
 	}
 	if len(errs) > 0 {
 		return nil, huma.Error422UnprocessableEntity("Invalid input", errs...)
+	}
+	// counted before anything is looked up, so the limit says nothing about the address
+	if n, err := s.Store.RateHit(ctx, "register:mail:"+strings.ToLower(email), registerWindow); err != nil {
+		return nil, s.storeErr(err)
+	} else if n > registerMailMax {
+		s.Log.Warn("registration mails rate limited", "remote", ip)
+		return nil, huma.Error429TooManyRequests(tooMany(registerWindow))
 	}
 	hash, err := HashPassword(in.Body.Password)
 	if err != nil {

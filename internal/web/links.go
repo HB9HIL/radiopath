@@ -225,8 +225,14 @@ func (s *Server) registerLinks(api huma.API) {
 		return s.linkOut(ctx, owner, id)
 	})
 
-	huma.Register(api, op("get-link", http.MethodGet, "/api/links/{id}", scopeLinksRead, "One link with its path analysis"),
+	o = op("get-link", http.MethodGet, "/api/links/{id}", scopeLinksRead, "One link with its path analysis")
+	o.Errors = append(o.Errors, http.StatusTooManyRequests)
+	o.Description = "Runs the analysis on every call; 60 analyses, reports and raster merges per user and minute."
+	huma.Register(api, o,
 		func(ctx context.Context, in *IDPath) (*LinkDetailOutput, error) {
+			if err := s.computeHit(ctx, userOf(ctx).ID); err != nil {
+				return nil, err
+			}
 			l, err := s.Store.GetLink(ctx, userOf(ctx).ID, in.ID)
 			if err != nil {
 				return nil, s.storeErr(err)

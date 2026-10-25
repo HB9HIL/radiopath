@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Confirmation and reset links carry their token in the URL fragment (`/verify#…`, `/reset#…`), which never reaches a server log; links mailed before the update no longer work, request a new one (by @HB9HIL)
 - Failed logins count per user name and IP (5) and per user name from all IPs (100) instead of per name alone, so a stranger can no longer lock an account out with five wrong passwords (by @HB9HIL)
 - One user can hold at most five job event streams at a time (by @HB9HIL)
+- One user can run at most 60 link analyses, PDF reports and raster merges per minute, so a single account cannot keep the server busy (by @HB9HIL)
+- Registration mails at most three times per hour to the same address, so nobody can flood a mailbox from many IPs (by @HB9HIL)
+- The server drops requests whose headers and body take longer than 30 seconds to arrive and idle connections after two minutes (by @HB9HIL)
 
 ### Fixed
 - Registration no longer tells whether a user name or an address is taken: it answers the same in every case, and only the mail to that address says what happened. An unconfirmed registration no longer blocks its address for others (by @HB9HIL)

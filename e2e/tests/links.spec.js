@@ -51,3 +51,19 @@ test('keeps a used site', async ({ page }) => {
   await expect(toast(page, 'Site is used by a link or coverage')).toBeVisible()
   await expect(c(page, '.table-note', '2 sites')).toBeVisible()
 })
+
+// last in the file: afterwards the user has used up the minute
+test('limits the analyses per user and minute', async ({ page }) => {
+  const sites = await (await page.request.get('/api/sites')).json()
+  const id = (name) => sites.find((s) => s.name === name).id
+  const res = await page.request.post('/api/links', {
+    data: { name: 'Busy', site_a_id: id('Alpha'), site_b_id: id('Bravo'), frequency_mhz: 145.6, polarization: 'vertical', tx_power_dbm: 40, rx_sensitivity_dbm: -120 },
+  })
+  expect(res.status()).toBe(201)
+  const link = (await res.json()).id
+  const codes = []
+  for (let i = 0; i < 61; i++) codes.push((await page.request.get(`/api/links/${link}`)).status())
+  expect(codes[0]).toBe(200)
+  expect(codes).toContain(429)
+  expect(new Set(codes)).toEqual(new Set([200, 429]))
+})

@@ -232,7 +232,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One link with its path analysis */
+        /**
+         * One link with its path analysis
+         * @description Runs the analysis on every call; 60 analyses, reports and raster merges per user and minute.
+         */
         get: operations["get-link"];
         /** Replace a link */
         put: operations["update-link"];
@@ -2300,6 +2303,15 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

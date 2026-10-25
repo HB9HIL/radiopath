@@ -61,10 +61,12 @@ HSTS are the ingress's job.
 Rate limits are counted in PostgreSQL, so they hold across replicas: 20 failed
 logins per IP, 5 per user name from one IP and 100 per user name from all IPs
 in 15 minutes (so a stranger cannot lock the owner out with a few wrong
-passwords), 5 registration attempts per IP
-per hour, 5 reset requests per IP and 3 per address per hour, 3 confirmation
-mails per account per hour, 120 requests per shared object per hour; further
-requests get HTTP 429. A made-up share token answers 404 without being
+passwords), 5 registration attempts per IP and 3 registration mails per address
+per hour (so nobody can flood a mailbox from many IPs), 5 reset requests per IP
+and 3 per address per hour, 3 confirmation mails per account per hour, 120
+requests per shared object per hour, and 60 path analyses, PDF reports and
+raster merges per user per minute (every view of a link recomputes it, so one
+account could otherwise keep the CPUs busy); further requests get HTTP 429. A made-up share token answers 404 without being
 counted, so guessing leaves no rows behind. Behind an ingress set
 `RADIOPATH_TRUST_PROXY=true` so the client IP is read from `X-Forwarded-For`
 (last hop); without it every request would count against the ingress address.

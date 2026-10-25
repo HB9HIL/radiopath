@@ -278,6 +278,10 @@ func run(ctx context.Context, cfg config, log *slog.Logger) error {
 		Addr:              cfg.listen,
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
+		// the whole request, so a slowly trickled body cannot hold a connection; no WriteTimeout, it would cut the
+		// job event streams
+		ReadTimeout: 30 * time.Second,
+		IdleTimeout: 2 * time.Minute,
 	}
 
 	host, _ := os.Hostname()
