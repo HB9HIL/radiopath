@@ -38,10 +38,9 @@ export async function login(page, name, pw = password) {
 }
 
 export async function addSite(page, name, lat, lon, height = 10) {
-  await page.request.post('/sites', { form: { name, lat, lon, antenna_height_m: height } })
-  const m = (await (await page.request.get('/sites')).text()).match(new RegExp(`/sites/(\\d+)">${name}<`))
-  expect(m, `site ${name} listed`).not.toBeNull()
-  return Number(m[1])
+  const res = await page.request.post('/api/sites', { data: { name, lat, lon, antenna_height_m: height } })
+  expect(res.status(), `site ${name}`).toBe(201)
+  return (await res.json()).id
 }
 
 /** Fills the link form; the caller saves it. */

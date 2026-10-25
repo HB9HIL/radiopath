@@ -31,13 +31,15 @@ test('creates, edits, duplicates and deletes a site', async ({ page }) => {
   await expect(page.getByText('Säntis (copy)')).toHaveCount(0)
 })
 
-test('re-renders the form with the errors', async ({ page }) => {
+test('shows the errors and keeps the input', async ({ page }) => {
   await page.goto('/sites/new')
   await page.locator('[name=name]').fill('Bad')
   await page.locator('[name=lat]').fill('95')
   await page.locator('[name=lon]').fill('abc')
   await c(page, 'button', 'Save').click()
-  await expect(c(page, '.alert-error li', 'Latitude: must be between -90 and 90')).toBeVisible()
-  await expect(c(page, '.alert-error li', 'Longitude: not a number')).toBeVisible()
+  await expect(c(page, '[role=alert]', 'Longitude: not a number')).toBeVisible()
+  await page.locator('[name=lon]').fill('9.3')
+  await c(page, 'button', 'Save').click()
+  await expect(c(page, '[role=alert]', 'Latitude: must be between -90 and 90')).toBeVisible()
   await expect(page.locator('[name=name]')).toHaveValue('Bad')
 })

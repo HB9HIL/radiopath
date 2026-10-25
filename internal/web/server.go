@@ -28,8 +28,8 @@ var templateFS embed.FS
 //go:embed static
 var staticFS embed.FS
 
-var pages = []string{"sites_list", "site_form", "links_list", "link_form", "link_detail",
-	"coverages_list", "coverage_form", "coverage_detail", "antennas_list",
+var pages = []string{"links_list", "link_form", "link_detail",
+	"coverages_list", "coverage_form", "coverage_detail",
 	"account", "admin_login", "admin_users", "notfound"}
 
 type base struct {
@@ -92,19 +92,6 @@ func (s *Server) Handler() http.Handler {
 		http.Redirect(w, r, "/links", http.StatusSeeOther)
 	})
 	mux.HandleFunc("POST /logout", s.logout)
-
-	mux.HandleFunc("GET /sites", s.listSites)
-	mux.HandleFunc("GET /sites/new", s.newSite)
-	mux.HandleFunc("POST /sites", s.createSite)
-	mux.HandleFunc("GET /sites/{id}", s.editSite)
-	mux.HandleFunc("POST /sites/{id}", s.updateSite)
-	mux.HandleFunc("POST /sites/{id}/delete", s.deleteSite)
-
-	mux.HandleFunc("GET /antennas", s.listAntennas)
-	mux.HandleFunc("POST /antennas", s.createAntenna)
-	mux.HandleFunc("POST /antennas/manual", s.createManualAntenna)
-	mux.HandleFunc("POST /antennas/{id}", s.updateAntenna)
-	mux.HandleFunc("POST /antennas/{id}/delete", s.deleteAntenna)
 
 	mux.HandleFunc("GET /links", s.listLinks)
 	mux.HandleFunc("GET /links/new", s.newLink)

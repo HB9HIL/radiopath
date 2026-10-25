@@ -46,6 +46,6 @@ test('keeps a used site', async ({ page }) => {
   await c(page, 'button', 'Save').click()
   await page.goto('/sites')
   await c(c(page, 'tr', 'Alpha'), 'button', 'Delete').click()
-  await expect(c(page, '.alert-error', 'Site is used by a link or coverage')).toBeVisible()
+  await expect(c(page, '[role=alert]', 'Site is used by a link or coverage')).toBeVisible()
   await expect(c(page, '.table-note', '2 sites')).toBeVisible()
 })

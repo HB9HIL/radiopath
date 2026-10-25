@@ -3,6 +3,10 @@ import type { components, paths } from './api.gen';
 
 export type Schemas = components['schemas'];
 export type Me = Schemas['Me'];
+export type Site = Schemas['Site'];
+export type SiteInput = Schemas['SiteInput'];
+export type Antenna = Schemas['Antenna'];
+export type ManualAntennaInput = Schemas['ManualAntennaInput'];
 
 export const api = createClient<paths>({ baseUrl: '' });
 
@@ -19,10 +23,16 @@ export class ApiError extends Error {
 
 type Result<T> = { data?: T; error?: unknown; response: Response };
 
-/** Awaits an openapi-fetch call and returns its data; throws ApiError otherwise. */
+// Pages anyone may open; a 401 there is an answer to show, not a missing login.
+const publicPage = /^\/(login|register|forgot|reset|verify|s)(\/|$)/;
+
+/** Awaits an openapi-fetch call and returns its data; throws ApiError otherwise. A 401 on an app page goes to the login and back. */
 export async function call<T>(p: Promise<Result<T>>): Promise<T> {
 	const { data, error, response } = await p;
 	if (response.ok) return data as T;
+	if (response.status === 401 && !publicPage.test(location.pathname)) {
+		location.assign('/login?next=' + encodeURIComponent(location.pathname + location.search));
+	}
 	const problem = (error ?? {}) as { detail?: string; errors?: { message?: string }[] };
 	const errors = (problem.errors ?? []).map((e) => e.message ?? '').filter(Boolean);
 	throw new ApiError(response.status, problem.detail || response.statusText, errors);
@@ -47,4 +57,10 @@ export function safeNext(next: string | null): string {
 	// "//host" and "/\host" (browsers turn \ into /) would leave the site
 	if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return '/';
 	return next;
+}
+
+/** Parses a decimal number typed by the user; NaN for anything else, so the caller can say which field is wrong. */
+export function parseNum(v: string | number): number {
+	if (typeof v === 'number') return v;
+	return v.trim() === '' ? NaN : Number(v.trim());
 }

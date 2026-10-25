@@ -66,24 +66,6 @@ func TestRenderPages(t *testing.T) {
 			Users:       []store.UserStat{{User: store.User{ID: 1, Name: "hb9hil", CreatedAt: now}, Sessions: 2, LastLogin: &now}},
 			PendingUser: "hb9hil", Maintenance: true}},
 		{"admin_users", adminData{base: base{Admin: true}, Errors: []string{"No such user: nope"}}},
-		{"sites_list", struct {
-			base
-			Sites []store.Site
-			Error string
-		}{Sites: sites}},
-		{"sites_list", struct {
-			base
-			Sites []store.Site
-			Error string
-		}{}},
-		{"site_form", siteFormData{Site: site, Form: siteValues(site)}},
-		{"antennas_list", antennasData{Antennas: antennaViews([]store.Antenna{
-			{ID: 1, Name: "Sector 90", GainDBi: 16.3, FreqMHz: 145, PatternH: pat, Source: "sector90.msi"},
-		})}},
-		{"antennas_list", antennasData{Errors: []string{"antenna: no GAIN in the file"}}},
-		{"antennas_list", antennasData{Antennas: antennaViews([]store.Antenna{
-			{ID: 2, Name: "Sector 65", GainDBi: 15, PatternH: antenna.Sector(65, 25), Source: "manual"},
-		}), Errors: []string{"Gain: not a number"}, Edit: 2}},
 		{"link_form", linkFormData{Link: store.Link{TxAntennaID: &antID}, Sites: sites,
 			Antennas: []store.Antenna{{ID: 1, Name: "Sector 90"}}, Form: linkValues(store.Link{})}},
 		{"coverage_form", coverageFormData{Coverage: cov.Coverage, Sites: sites,

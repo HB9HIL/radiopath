@@ -1,144 +1,126 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
+
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/radiopath/radiopath/internal/store"
 )
 
-type siteFormData struct {
-	base
-	Site   store.Site
-	Form   map[string]string
-	Errors []string
+const (
+	scopeSitesRead  = "sites:read"
+	scopeSitesWrite = "sites:write"
+)
+
+type SiteInput struct {
+	Name           string  `json:"name"`
+	Lat            float64 `json:"lat" doc:"Latitude in degrees, WGS84"`
+	Lon            float64 `json:"lon" doc:"Longitude in degrees, WGS84"`
+	AntennaHeightM float64 `json:"antenna_height_m" doc:"Antenna height above ground in metres"`
 }
 
-// siteValues returns the form field values of a site's coordinates and antenna height.
-func siteValues(st store.Site) map[string]string {
-	return map[string]string{
-		"lat":              strconv.FormatFloat(st.Lat, 'f', -1, 64),
-		"lon":              strconv.FormatFloat(st.Lon, 'f', -1, 64),
-		"antenna_height_m": strconv.FormatFloat(st.AntennaHeightM, 'f', -1, 64),
-	}
+type Site struct {
+	ID int64 `json:"id"`
+	SiteInput
 }
 
-// parseSite reads and validates the site form.
-func parseSite(r *http.Request) (store.Site, *form) {
-	f := &form{r: r}
+type IDPath struct {
+	ID int64 `path:"id"`
+}
+
+type SiteOutput struct{ Body Site }
+
+// toSite returns the API view of a stored site.
+func toSite(st store.Site) Site {
+	return Site{ID: st.ID, SiteInput: SiteInput{Name: st.Name, Lat: st.Lat, Lon: st.Lon, AntennaHeightM: st.AntennaHeightM}}
+}
+
+// parseSite validates a site input and returns it as a store site of owner.
+func parseSite(in SiteInput, owner int64) (store.Site, error) {
+	var c check
 	st := store.Site{
-		Name:           f.text("name", "Name"),
-		Lat:            f.num("lat", "Latitude", -90, 90),
-		Lon:            f.num("lon", "Longitude", -180, 180),
-		AntennaHeightM: f.num("antenna_height_m", "Antenna height", 0.5, 3000),
+		OwnerID:        owner,
+		Name:           c.text("name", "Name", in.Name),
+		Lat:            c.num("lat", "Latitude", in.Lat, -90, 90),
+		Lon:            c.num("lon", "Longitude", in.Lon, -180, 180),
+		AntennaHeightM: c.num("antenna_height_m", "Antenna height", in.AntennaHeightM, 0.5, 3000),
 	}
-	return st, f
+	return st, c.err()
 }
 
-// listSites renders the user's sites, with an optional error passed in the query string.
-func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
-	sites, err := s.Store.ListSites(r.Context(), currentUser(r).ID)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	s.render(w, http.StatusOK, "sites_list", struct {
-		base
-		Sites []store.Site
-		Error string
-	}{s.base(r), sites, r.URL.Query().Get("error")})
-}
+// registerSites registers the site operations.
+func (s *Server) registerSites(api huma.API) {
+	huma.Register(api, op("list-sites", http.MethodGet, "/api/sites", scopeSitesRead, "The user's sites, ordered by name"),
+		func(ctx context.Context, _ *struct{}) (*struct{ Body []Site }, error) {
+			sites, err := s.Store.ListSites(ctx, userOf(ctx).ID)
+			if err != nil {
+				return nil, s.storeErr(err)
+			}
+			out := make([]Site, 0, len(sites))
+			for _, st := range sites {
+				out = append(out, toSite(st))
+			}
+			return &struct{ Body []Site }{out}, nil
+		})
 
-// newSite renders the empty site form, or a copy of the site given by the from parameter.
-func (s *Server) newSite(w http.ResponseWriter, r *http.Request) {
-	st := store.Site{AntennaHeightM: 10}
-	f := siteValues(st)
-	f["lat"], f["lon"] = "", ""
-	if from, ok := fromID(r); ok {
-		orig, err := s.Store.GetSite(r.Context(), currentUser(r).ID, from)
+	o := op("create-site", http.MethodPost, "/api/sites", scopeSitesWrite, "Create a site")
+	o.DefaultStatus = http.StatusCreated
+	huma.Register(api, o, func(ctx context.Context, in *struct{ Body SiteInput }) (*SiteOutput, error) {
+		st, err := parseSite(in.Body, userOf(ctx).ID)
 		if err != nil {
-			s.fail(w, err)
-			return
+			return nil, err
 		}
-		st = store.Site{Name: orig.Name + " (copy)", Lat: orig.Lat, Lon: orig.Lon, AntennaHeightM: orig.AntennaHeightM}
-		f = siteValues(st)
-	}
-	s.render(w, http.StatusOK, "site_form", siteFormData{base: s.base(r), Site: st, Form: f})
-}
+		st.ID, err = s.Store.CreateSite(ctx, st)
+		if errors.Is(err, store.ErrQuota) {
+			return nil, huma.Error422UnprocessableEntity(fmt.Sprintf("Limit of %d sites reached", store.MaxSitesPerUser))
+		}
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		return &SiteOutput{toSite(st)}, nil
+	})
 
-// createSite stores a new site and redirects to /sites; invalid input or the per-user site limit re-render the form with 422.
-func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
-	st, f := parseSite(r)
-	if len(f.Errors) > 0 {
-		s.render(w, http.StatusUnprocessableEntity, "site_form", siteFormData{base: s.base(r), Site: st, Form: f.values(), Errors: f.Errors})
-		return
-	}
-	st.OwnerID = currentUser(r).ID
-	_, err := s.Store.CreateSite(r.Context(), st)
-	if errors.Is(err, store.ErrQuota) {
-		s.render(w, http.StatusUnprocessableEntity, "site_form", siteFormData{base: s.base(r), Site: st, Form: f.values(),
-			Errors: []string{fmt.Sprintf("Limit of %d sites reached", store.MaxSitesPerUser)}})
-		return
-	}
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, "/sites", http.StatusSeeOther)
-}
+	huma.Register(api, op("get-site", http.MethodGet, "/api/sites/{id}", scopeSitesRead, "One site"),
+		func(ctx context.Context, in *IDPath) (*SiteOutput, error) {
+			st, err := s.Store.GetSite(ctx, userOf(ctx).ID, in.ID)
+			if err != nil {
+				return nil, s.storeErr(err)
+			}
+			return &SiteOutput{toSite(st)}, nil
+		})
 
-// editSite renders the form for an existing site.
-func (s *Server) editSite(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	st, err := s.Store.GetSite(r.Context(), currentUser(r).ID, id)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	s.render(w, http.StatusOK, "site_form", siteFormData{base: s.base(r), Site: st, Form: siteValues(st)})
-}
+	huma.Register(api, op("update-site", http.MethodPut, "/api/sites/{id}", scopeSitesWrite, "Replace a site"),
+		func(ctx context.Context, in *struct {
+			IDPath
+			Body SiteInput
+		}) (*SiteOutput, error) {
+			st, err := parseSite(in.Body, userOf(ctx).ID)
+			if err != nil {
+				return nil, err
+			}
+			st.ID = in.ID
+			if err := s.Store.UpdateSite(ctx, st); err != nil {
+				return nil, s.storeErr(err)
+			}
+			return &SiteOutput{toSite(st)}, nil
+		})
 
-// updateSite saves an edited site and redirects to /sites, or re-renders the form with 422 on invalid input.
-func (s *Server) updateSite(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	st, f := parseSite(r)
-	st.ID, st.OwnerID = id, currentUser(r).ID
-	if len(f.Errors) > 0 {
-		s.render(w, http.StatusUnprocessableEntity, "site_form", siteFormData{base: s.base(r), Site: st, Form: f.values(), Errors: f.Errors})
-		return
-	}
-	if err := s.Store.UpdateSite(r.Context(), st); err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, "/sites", http.StatusSeeOther)
-}
-
-// deleteSite deletes a site and redirects to /sites; a site still used by a link or coverage is kept and an error is shown.
-func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	err = s.Store.DeleteSite(r.Context(), currentUser(r).ID, id)
-	if errors.Is(err, store.ErrInUse) {
-		http.Redirect(w, r, "/sites?error="+escapeQuery("Site is used by a link or coverage and cannot be deleted."), http.StatusSeeOther)
-		return
-	}
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	http.Redirect(w, r, "/sites", http.StatusSeeOther)
+	o = op("delete-site", http.MethodDelete, "/api/sites/{id}", scopeSitesWrite, "Delete a site")
+	o.DefaultStatus = http.StatusNoContent
+	o.Errors = append(o.Errors, http.StatusConflict)
+	o.Description = "409 while a link or coverage uses the site."
+	huma.Register(api, o, func(ctx context.Context, in *IDPath) (*struct{}, error) {
+		err := s.Store.DeleteSite(ctx, userOf(ctx).ID, in.ID)
+		if errors.Is(err, store.ErrInUse) {
+			return nil, huma.Error409Conflict("Site is used by a link or coverage and cannot be deleted.")
+		}
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		return nil, nil
+	})
 }

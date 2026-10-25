@@ -135,3 +135,81 @@
 		@apply bg-background text-foreground font-sans text-[14px] leading-[1.5] antialiased;
 	}
 }
+
+/* Leaflet and the server-rendered plots; unlayered on purpose: leaflet.css is unlayered and would beat anything inside @layer */
+.map {
+	height: 520px;
+	width: 100%;
+	border: 1px solid var(--cp-line);
+}
+.leaflet-container {
+	font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+}
+.leaflet-container,
+.map {
+	background: var(--cp-line-soft);
+}
+.leaflet-container a {
+	color: var(--cp-accent);
+}
+.leaflet-bar,
+.leaflet-bar a,
+.leaflet-bar a:first-child,
+.leaflet-bar a:last-child,
+.leaflet-control-layers,
+.leaflet-popup-content-wrapper {
+	border-radius: 0;
+}
+[data-theme='dark'] .leaflet-bar a,
+[data-theme='dark'] .leaflet-control-layers,
+[data-theme='dark'] .leaflet-control-layers-toggle,
+[data-theme='dark'] .leaflet-popup-content-wrapper,
+[data-theme='dark'] .leaflet-popup-tip {
+	background-color: var(--cp-surface);
+	color: var(--cp-fg);
+}
+[data-theme='dark'] .leaflet-bar a:hover,
+[data-theme='dark'] .leaflet-bar a:focus {
+	background-color: var(--cp-line-soft);
+}
+[data-theme='dark'] .leaflet-bar a.leaflet-disabled {
+	background-color: var(--cp-surface);
+	color: var(--cp-muted);
+}
+[data-theme='dark'] .leaflet-bar,
+[data-theme='dark'] .leaflet-bar a,
+[data-theme='dark'] .leaflet-touch .leaflet-bar a {
+	border-color: var(--cp-line);
+}
+[data-theme='dark'] .leaflet-bar {
+	box-shadow: none;
+}
+[data-theme='dark'] .leaflet-control-attribution {
+	background: color-mix(in oklab, var(--cp-surface) 85%, transparent);
+	color: var(--cp-muted);
+}
+[data-theme='dark'] .leaflet-popup-content-wrapper {
+	box-shadow: 0 3px 14px rgb(0 0 0 / 0.6);
+}
+[data-theme='dark'] .leaflet-tile-pane {
+	filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.85);
+}
+.link-path {
+	stroke: var(--cp-ray);
+}
+.range-circle {
+	stroke: var(--cp-accent);
+	stroke-dasharray: 6 4;
+}
+
+.pattern-svg {
+	display: block;
+}
+.pattern-svg .ring {
+	stroke: var(--cp-line);
+	fill: none;
+}
+.pattern-svg .lobe {
+	fill: color-mix(in oklab, var(--cp-accent) 25%, transparent);
+	stroke: var(--cp-accent);
+}

@@ -17,13 +17,13 @@ test('rejects a file without a pattern', async ({ page }) => {
   await page.goto('/antennas')
   await page.locator('input[type=file]').setInputFiles({ name: 'bad.msi', mimeType: 'application/octet-stream', buffer: Buffer.from('NAME x\nGAIN 3 dBd\n') })
   await c(page, 'button', 'Import').click()
-  await expect(c(page, '.alert-error li', 'no HORIZONTAL pattern')).toBeVisible()
+  await expect(c(page, '[role=alert]', 'no HORIZONTAL pattern')).toBeVisible()
   await expect(c(page, '.table-note', '1 antenna')).toBeVisible()
 })
 
 test('builds a sector, edits and deletes it', async ({ page }) => {
   await page.goto('/antennas')
-  const manual = page.locator('form[action="/antennas/manual"]')
+  const manual = page.getByRole('form', { name: 'Describe an antenna' })
   await manual.locator('[name=name]').fill('Sector 65')
   await manual.locator('[name=gain_dbi]').fill('15')
   await c(manual, 'button', 'Create').click()
@@ -32,7 +32,7 @@ test('builds a sector, edits and deletes it', async ({ page }) => {
   await expect(c(c(page, 'tr', 'E2E Yagi'), '*', 'Edit')).toHaveCount(0)
 
   await c(c(page, 'tr', 'Sector 65'), 'button', 'Edit').click()
-  const dialog = page.locator('dialog[open]')
+  const dialog = page.getByRole('dialog')
   await expect(dialog).toHaveCount(1)
   await expect(dialog.locator('[name=beamwidth_deg]')).toHaveValue('65')
   await expect(dialog.locator('[name=front_back_db]')).toHaveValue('25')
@@ -40,7 +40,7 @@ test('builds a sector, edits and deletes it', async ({ page }) => {
   await dialog.locator('[name=gain_dbi]').fill('abc')
   await c(dialog, 'button', 'Save').click()
 
-  await expect(c(dialog, '.alert-error li', 'Gain: not a number')).toBeVisible()
+  await expect(c(dialog, '[role=alert]', 'Gain: not a number')).toBeVisible()
   await expect(dialog.locator('[name=name]')).toHaveValue('Sector 90')
   await dialog.locator('[name=gain_dbi]').fill('17')
   await dialog.locator('[name=beamwidth_deg]').fill('90')

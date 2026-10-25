@@ -3,7 +3,10 @@ package web
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -52,6 +55,8 @@ func (s *Server) registerAPI(api huma.API) {
 	s.registerConfig(api)
 	s.registerAuth(api)
 	s.registerMailFlows(api)
+	s.registerSites(api)
+	s.registerAntennas(api)
 }
 
 // op returns an operation; a non-empty scope requires a logged-in user, an empty one makes it public.
@@ -114,6 +119,52 @@ func reqInfo(ctx context.Context) requestInfo {
 func userOf(ctx context.Context) store.User {
 	u, _ := ctx.Value(userKey).(store.User)
 	return u
+}
+
+// check collects the invalid fields of an API input; err returns them as one 422.
+type check struct{ errs []error }
+
+// add records a problem with field; an empty field means the input as a whole.
+func (c *check) add(field, msg string) {
+	loc := "body"
+	if field != "" {
+		loc += "." + field
+	}
+	c.errs = append(c.errs, &huma.ErrorDetail{Location: loc, Message: msg})
+}
+
+// num checks that v lies within lo..hi and returns it.
+func (c *check) num(field, label string, v, lo, hi float64) float64 {
+	if math.IsNaN(v) || v < lo || v > hi {
+		c.add(field, fmt.Sprintf("%s: must be between %g and %g", label, lo, hi))
+	}
+	return v
+}
+
+// optNum is num for an optional value; nil passes.
+func (c *check) optNum(field, label string, v *float64, lo, hi float64) *float64 {
+	if v != nil {
+		c.num(field, label, *v, lo, hi)
+	}
+	return v
+}
+
+// text checks a required value of at most maxTextLen characters and returns it.
+func (c *check) text(field, label, v string) string {
+	if v == "" {
+		c.add(field, label+": required")
+	} else if utf8.RuneCountInString(v) > maxTextLen {
+		c.add(field, fmt.Sprintf("%s: at most %d characters", label, maxTextLen))
+	}
+	return v
+}
+
+// err returns the collected problems as a 422, or nil.
+func (c *check) err() error {
+	if len(c.errs) == 0 {
+		return nil
+	}
+	return huma.Error422UnprocessableEntity("Invalid input", c.errs...)
 }
 
 // storeErr maps store errors to problem responses and logs anything unexpected as a 500.

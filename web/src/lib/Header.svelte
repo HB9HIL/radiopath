@@ -1,16 +1,17 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { api, meQuery } from '$lib/api';
 	import { Button } from '$lib/components/ui/button';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 
 	const me = createQuery(meQuery);
-	// Template pages until each section is ported: links to them need a full page load.
+	// The last element marks sections still served as template pages: links to them need a full page load.
 	const nav = [
-		['/sites', 'Sites'],
-		['/links', 'Links'],
-		['/coverages', 'Coverage'],
-		['/antennas', 'Antennas']
+		['/sites', 'Sites', 'off'],
+		['/links', 'Links', ''],
+		['/coverages', 'Coverage', ''],
+		['/antennas', 'Antennas', 'off']
 	];
 
 	/** Ends the session and goes to the login page. */
@@ -24,8 +25,15 @@
 	<a class="text-[13px] font-semibold text-foreground" href="/" data-sveltekit-reload>Radiopath</a>
 	{#if me.data}
 		<nav class="order-last flex basis-full items-center gap-5 sm:order-none sm:basis-auto">
-			{#each nav as [href, label] (href)}
-				<a class="flex h-10 items-center text-[13px] text-muted-foreground hover:text-foreground sm:h-12" {href} data-sveltekit-reload>{label}</a>
+			{#each nav as [href, label, reload] (href)}
+				<a
+					class={[
+						'-mb-px flex h-10 items-center border-b-2 text-[13px] hover:text-foreground sm:h-12',
+						page.url.pathname.startsWith(href) ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'
+					]}
+					{href}
+					data-sveltekit-reload={reload}>{label}</a
+				>
 			{/each}
 		</nav>
 	{/if}
