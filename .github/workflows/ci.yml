@@ -141,8 +141,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v4
-      # main and tag runs of one commit share its image, whichever builds first; main moves :staging,
-      # a tag :X.Y.Z and :latest.
+      # Every run packs its own binaries: their version comes from git describe of that run, so a main run
+      # before the tag push would ship the wrong version. main moves :staging, a tag :X.Y.Z and :latest.
       - run: |
           chmod +x bin/radiopath-linux-*
           sha="$IMAGE:${GITHUB_SHA::7}"
@@ -151,11 +151,7 @@ jobs:
           else
             tags=(-t "$IMAGE:staging")
           fi
-          if docker buildx imagetools inspect "$sha" >/dev/null 2>&1; then
-            docker buildx imagetools create "${tags[@]}" "$sha"
-          else
-            docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci.Dockerfile -t "$sha" "${tags[@]}" --push bin
-          fi
+          docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci.Dockerfile -t "$sha" "${tags[@]}" --push bin
 
   # A GitHub release with the changelog section of the version and the binaries.
   release:
