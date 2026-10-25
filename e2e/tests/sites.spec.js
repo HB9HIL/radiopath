@@ -1,4 +1,4 @@
-import { test, expect, c, login } from '../helpers.js'
+import { test, expect, c, login, toast, rowAction, confirmDialog } from '../helpers.js'
 
 test.beforeEach(({ page }) => login(page, 'sites'))
 
@@ -15,18 +15,19 @@ test('creates, edits, duplicates and deletes a site', async ({ page }) => {
   await expect(c(page, 'tr', 'Säntis')).toContainText('47.24950')
   await expect(c(page, 'tr', 'Säntis')).toContainText('12.0 m')
 
-  await c(c(page, 'tr', 'Säntis'), 'a', 'Edit').click()
+  await rowAction(page, 'Säntis', 'Edit')
   await page.locator('[name=antenna_height_m]').fill('20')
   await c(page, 'button', 'Save').click()
   await expect(c(page, 'tr', 'Säntis')).toContainText('20.0 m')
 
-  await c(c(page, 'tr', 'Säntis'), 'a', 'Duplicate').click()
+  await rowAction(page, 'Säntis', 'Duplicate')
   await expect(page.locator('[name=name]')).toHaveValue('Säntis (copy)')
   await expect(page.locator('[name=lat]')).toHaveValue('47.2495')
   await c(page, 'button', 'Save').click()
   await expect(c(page, '.table-note', '2 sites')).toBeVisible()
 
-  await c(c(page, 'tr', 'Säntis (copy)'), 'button', 'Delete').click()
+  await rowAction(page, 'Säntis (copy)', 'Delete')
+  await confirmDialog(page)
   await expect(c(page, '.table-note', '1 site')).toBeVisible()
   await expect(page.getByText('Säntis (copy)')).toHaveCount(0)
 })
@@ -37,9 +38,9 @@ test('shows the errors and keeps the input', async ({ page }) => {
   await page.locator('[name=lat]').fill('95')
   await page.locator('[name=lon]').fill('abc')
   await c(page, 'button', 'Save').click()
-  await expect(c(page, '[role=alert]', 'Longitude: not a number')).toBeVisible()
+  await expect(toast(page, 'Longitude: not a number')).toBeVisible()
   await page.locator('[name=lon]').fill('9.3')
   await c(page, 'button', 'Save').click()
-  await expect(c(page, '[role=alert]', 'Latitude: must be between -90 and 90')).toBeVisible()
+  await expect(toast(page, 'Latitude: must be between -90 and 90')).toBeVisible()
   await expect(page.locator('[name=name]')).toHaveValue('Bad')
 })

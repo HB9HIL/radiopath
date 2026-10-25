@@ -7,9 +7,9 @@ export const adminToken = 'e2e-only-admin-token-not-a-secret-1234'
 export const password = 'e2e-password-1'
 
 // one user per spec file, so the files run in parallel without seeing each other's data; created by global-setup.js
-export const users = ['account', 'admin', 'antennas', 'auth', 'coverage', 'links', 'owner-a', 'owner-b', 'share', 'sites']
+export const users = ['account', 'admin', 'antennas', 'auth', 'coverage', 'links', 'mobile', 'owner-a', 'owner-b', 'share', 'sites']
 
-// map tiles are stubbed in the browser, nothing reaches the tile server; confirm() dialogs are accepted
+// map tiles are stubbed in the browser, nothing reaches the tile server; confirm() dialogs of the admin panel are accepted
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.route('**/tiles/**', (route) => route.fulfill({ status: 204 }))
@@ -25,6 +25,21 @@ export function c(scope, selector, text) {
 }
 
 export const pathname = (page) => new URL(page.url()).pathname
+
+/** The toast that contains text. */
+export const toast = (page, text) => page.locator('[data-sonner-toast]', { hasText: text }).first()
+
+/** Opens the ⋯ menu of the table row containing row and picks an action. */
+export async function rowAction(page, row, name) {
+  await c(page, 'tr', row).getByRole('button', { name: 'Actions' }).click()
+  await page.getByRole('menuitem', { name, exact: true }).click()
+}
+
+/** Confirms the open confirmation dialog with its action button. */
+export const confirmDialog = (page, action = 'Delete') => page.getByRole('alertdialog').getByRole('button', { name: action }).click()
+
+/** Opens the user menu in the header. */
+export const userMenu = (page) => page.locator('header [aria-haspopup="menu"]').click()
 
 /** A page in its own context for setup in beforeAll. */
 export const newPage = (browser) => browser.newPage({ baseURL })

@@ -18,14 +18,16 @@ test.beforeEach(({ page }) => login(page, user))
 
 const sharePath = async (page) => (await page.locator('input[readonly]').inputValue()).replace(/^https?:\/\/[^/]+/, '')
 const dropSession = (page) => page.context().clearCookies({ name: 'radiopath_session' })
+// exact: the user of this spec is called share, and the user menu in the header carries that name
+const shareButton = (page) => page.getByRole('button', { name: 'Share', exact: true })
 
 test('shows a link to a visitor without a session', async ({ page }) => {
   await page.goto('/links')
   await c(c(page, 'tr', 'Shared link'), 'a', 'Shared link').click()
   await expect(c(page, 'button', 'Create public link')).not.toBeVisible()
-  await c(page, 'button', 'Share').click()
+  await shareButton(page).click()
   await c(page, 'button', 'Create public link').click()
-  await expect(c(page, 'button', 'Share')).toHaveClass(/btn-shared/)
+  await expect(shareButton(page)).toHaveClass(/btn-shared/)
   await expect(page.locator('input[readonly]')).toBeVisible()
   const path = await sharePath(page)
   expect(path).toMatch(/^\/s\/l\/\S+$/)
@@ -45,11 +47,11 @@ test('shows a link to a visitor without a session', async ({ page }) => {
 test('revokes a link share', async ({ page }) => {
   await page.goto('/links')
   await c(c(page, 'tr', 'Shared link'), 'a', 'Shared link').click()
-  await c(page, 'button', 'Share').click()
+  await shareButton(page).click()
   const path = await sharePath(page)
   await c(page, 'button', 'Revoke').click()
   await expect(c(page, 'button', 'Create public link')).toBeVisible()
-  await expect(c(page, 'button', 'Share')).not.toHaveClass(/btn-shared/)
+  await expect(shareButton(page)).not.toHaveClass(/btn-shared/)
 
   await dropSession(page)
   expect(await status(page, path.replace('/s/l/', '/api/share/links/'))).toBe(404)
@@ -60,7 +62,7 @@ test('revokes a link share', async ({ page }) => {
 
 test('shows a computed coverage to a visitor', async ({ page }) => {
   await computeCoverage(page, 'Shared coverage', 2)
-  await c(page, 'button', 'Share').click()
+  await shareButton(page).click()
   await c(page, 'button', 'Create public link').click()
   await expect(page.locator('input[readonly]')).toBeVisible()
   const path = await sharePath(page)

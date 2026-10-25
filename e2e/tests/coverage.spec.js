@@ -1,4 +1,4 @@
-import { test, expect, c, login, addSite, newPage, computeCoverage, contentType, status } from '../helpers.js'
+import { test, expect, c, login, addSite, newPage, computeCoverage, contentType, status, toast } from '../helpers.js'
 
 const user = 'coverage'
 
@@ -96,7 +96,7 @@ test('edits the legend without recomputing', async ({ page }) => {
   await c(page, 'button', 'Edit legend').click()
   await legend.locator('[name=min_2]').fill('40')
   await c(legend, 'button', 'Save').click()
-  await expect(c(legend, '[role=alert]', 'listed twice')).toBeVisible()
+  await expect(toast(page, 'listed twice')).toBeVisible()
   await expect(c(page, 'td', '>= 40 dB')).toBeVisible()
   await c(legend, 'button', 'Reset to defaults').click()
   await expect(c(page, 'td', '>= 30 dB')).toBeVisible()
@@ -109,5 +109,5 @@ test('refuses too many pixels', async ({ page }) => {
   await page.locator('[name=range_km]').fill('300')
   await page.locator('[name=resolution_m]').fill('10')
   await c(page, 'button', 'Save').click()
-  await expect(c(page, '[role=alert]', 'Range / resolution exceeds 1000 pixels per radius')).toBeVisible()
+  await expect(toast(page, 'Range / resolution exceeds 1000 pixels per radius')).toBeVisible()
 })

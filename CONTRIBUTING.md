@@ -71,7 +71,8 @@ The [development tutorial](docs/tutorials/getting-started.md) walks through the 
 
 ### End-to-end tests
 
-- A change to the user interface comes with an end-to-end test that covers it.
+- A change to the user interface comes with an end-to-end test that covers it, and works on a phone:
+  `e2e/tests/mobile.spec.js` checks that no page scrolls sideways.
 - Each spec file has its own user; tests inside a file build on each other. How to write and run them:
   [Run and write end-to-end tests](docs/how-to/run-and-write-e2e-tests.md).
 
