@@ -33,8 +33,8 @@ export const session = async (page) => (await page.context().cookies()).find((k)
 
 // login without the form: a request carries no Origin, so the CSRF check lets it pass
 export async function login(page, name, pw = password) {
-  const res = await page.request.post('/login', { form: { name, password: pw, next: '/' }, maxRedirects: 0 })
-  expect(res.status(), `login ${name}`).toBe(303)
+  const res = await page.request.post('/api/session', { data: { name, password: pw } })
+  expect(res.status(), `login ${name}`).toBe(204)
 }
 
 export async function addSite(page, name, lat, lon, height = 10) {

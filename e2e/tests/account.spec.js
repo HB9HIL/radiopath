@@ -20,7 +20,7 @@ test('changes the password and logs the other device out', async ({ page, browse
   await expect(c(page.locator('header'), 'a', user)).toBeVisible()
   expect(await status(other, '/account')).toBe(303)
   await other.close()
-  expect(await status(page, '/login', { method: 'POST', form: { name: user, password, next: '/' } })).toBe(401)
+  expect(await status(page, '/api/session', { method: 'POST', data: { name: user, password } })).toBe(401)
 })
 
 test('rejects a wrong current password', async ({ page }) => {

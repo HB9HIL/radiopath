@@ -14,7 +14,7 @@ TAILWIND := npx tailwindcss -i internal/web/ui/app.css -o internal/web/static/ap
 # The image follows @playwright/test in e2e/package.json, the one place Renovate updates.
 PLAYWRIGHT_IMAGE := mcr.microsoft.com/playwright:v$(shell sed -n 's/.*"@playwright\/test": "\([^"]*\)".*/\1/p' e2e/package.json)-noble
 
-.PHONY: dev test vet build docker css web check e2e e2e-run FORCE
+.PHONY: dev test vet build docker css web check api e2e e2e-run FORCE
 
 .env:
 	cp .env.example .env
@@ -70,6 +70,11 @@ internal/webui/dist/index.html:
 
 check: web/node_modules
 	$(WEB) npm run check
+
+# The OpenAPI description and the TypeScript types the SPA builds on; run after changing an API operation and commit both.
+api: web/node_modules internal/webui/dist/index.html
+	go run ./cmd/radiopath openapi > web/openapi.json
+	$(WEB) npm run api
 
 # Static Linux binaries, packed by docker/ci.Dockerfile into the e2e and the release image.
 bin/radiopath-linux-%: FORCE

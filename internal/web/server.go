@@ -29,8 +29,8 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 var pages = []string{"sites_list", "site_form", "links_list", "link_form", "link_detail",
-	"coverages_list", "coverage_form", "coverage_detail", "antennas_list", "login",
-	"register", "account", "forgot", "reset", "admin_login", "admin_users", "notfound"}
+	"coverages_list", "coverage_form", "coverage_detail", "antennas_list",
+	"account", "admin_login", "admin_users", "notfound"}
 
 type base struct {
 	User  string
@@ -172,20 +172,8 @@ func (s *Server) Handler() http.Handler {
 	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok\n")) })
 	root.HandleFunc("GET /readyz", s.readyz)
 	root.Handle("GET /static/", staticHandler())
-	root.HandleFunc("GET /login", s.loginForm)
-	root.HandleFunc("POST /login", s.login)
-	if s.Registration {
-		root.HandleFunc("GET /register", s.registerForm)
-		root.HandleFunc("POST /register", s.register)
-	}
-	if s.Mail != nil {
-		root.HandleFunc("GET /forgot", s.forgotForm)
-		root.HandleFunc("POST /forgot", s.forgot)
-		root.HandleFunc("GET /reset/{token}", s.resetForm)
-		root.HandleFunc("POST /reset/{token}", s.reset)
-		root.HandleFunc("GET /verify/{token}", s.verify)
-		root.HandleFunc("POST /verify/resend", s.resendVerification)
-	}
+	api := s.api()
+	root.Handle("/api/", s.authenticate(api))
 	// ponytail: template routes go first until each section is ported to the SPA, then "/" serves only the SPA.
 	app, spa := s.requireAuth(mux), s.spa()
 	root.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +184,7 @@ func (s *Server) Handler() http.Handler {
 		spa.ServeHTTP(w, r)
 	}))
 
-	return secureHeaders(instrument(root, mux, http.NewCrossOriginProtection().Handler(root)))
+	return secureHeaders(instrument(root, map[string]*http.ServeMux{"/": mux, "/api/": api}, http.NewCrossOriginProtection().Handler(root)))
 }
 
 // secureHeaders adds the nosniff, frame and referrer headers to every response.

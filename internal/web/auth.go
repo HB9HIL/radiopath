@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/radiopath/radiopath/internal/metrics"
@@ -48,12 +49,6 @@ func (s *Server) clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
-}
-
-// limited reports whether key already has max or more hits within window, without counting a new one.
-func (s *Server) limited(r *http.Request, key string, window time.Duration, max int) (bool, error) {
-	n, err := s.Store.RateCount(r.Context(), key, window)
-	return n >= max, err
 }
 
 // tooMany returns the rate-limit error text with the wait time in minutes.
@@ -128,138 +123,157 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 	})
 }
 
-type loginData struct {
-	base
-	Next         string
-	Error        string
-	Notice       string
-	Unverified   string
-	Registration bool
-	Forgot       bool
-	Maintenance  bool
-}
+const maintenanceText = "Radiopath is closed for maintenance. Logins are disabled, please try again later."
 
-// loginPage returns login template data with the registration and forgot-password links switched on as configured.
-func (s *Server) loginPage(next, errMsg string) loginData {
-	return loginData{Next: next, Error: errMsg, Registration: s.Registration, Forgot: s.Mail != nil}
-}
-
-// maintenance returns the maintenance flag; ok is false when the lookup failed and the error response was already written.
-func (s *Server) maintenance(w http.ResponseWriter, r *http.Request) (bool, bool) {
-	on, err := s.Store.Maintenance(r.Context())
+// maintenanceErr returns a 503 while maintenance mode is on, nil otherwise.
+func (s *Server) maintenanceErr(ctx context.Context) error {
+	on, err := s.Store.Maintenance(ctx)
 	if err != nil {
-		s.fail(w, err)
-		return false, false
+		return s.storeErr(err)
 	}
-	return on, true
+	if on {
+		return huma.Error503ServiceUnavailable(maintenanceText)
+	}
+	return nil
 }
 
-// loginForm renders GET /login (503 in maintenance mode) or redirects to / when a session exists.
-func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.sessionUser(r); err == nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+type LoginInput struct {
+	Body struct {
+		Name     string `json:"name"`
+		Password string `json:"password"`
 	}
-	on, ok := s.maintenance(w, r)
-	if !ok {
-		return
-	}
-	status := http.StatusOK
-	if on {
-		status = http.StatusServiceUnavailable
-	}
-	d := s.loginPage(safeNext(r.URL.Query().Get("next")), "")
-	d.Maintenance, d.Notice = on, notice(r)
-	s.render(w, status, "login", d)
+}
+
+type SessionOutput struct {
+	SetCookie http.Cookie `header:"Set-Cookie"`
+}
+
+type Me struct {
+	Name     string `json:"name"`
+	Email    string `json:"email" doc:"Empty until an address is confirmed"`
+	Verified bool   `json:"verified"`
+}
+
+type MeOutput struct{ Body Me }
+
+// registerAuth registers login, logout, registration and the current user.
+func (s *Server) registerAuth(api huma.API) {
+	o := op("create-session", http.MethodPost, "/api/session", "", "Log in and set the session cookie")
+	o.DefaultStatus = http.StatusNoContent
+	o.Errors = []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests, http.StatusServiceUnavailable}
+	o.Description = "403 means the address of the account is not confirmed yet."
+	huma.Register(api, o, s.login)
+
+	o = op("delete-session", http.MethodDelete, "/api/session", "", "Log out and clear the session cookie")
+	o.DefaultStatus = http.StatusNoContent
+	huma.Register(api, o, func(ctx context.Context, _ *struct{}) (*SessionOutput, error) {
+		if c := reqInfo(ctx).cookie; c != "" {
+			if err := s.Store.DeleteSession(ctx, sessionID(c)); err != nil {
+				s.Log.Warn("logout", "err", err)
+			}
+		}
+		return &SessionOutput{SetCookie: http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1}}, nil
+	})
+
+	o = op("register", http.MethodPost, "/api/register", "", "Create an account and mail the confirmation link")
+	o.DefaultStatus = http.StatusNoContent
+	o.Errors = []int{http.StatusNotFound, http.StatusConflict, http.StatusTooManyRequests, http.StatusServiceUnavailable}
+	o.Description = "404 when registration is closed."
+	huma.Register(api, o, s.register)
+
+	huma.Register(api, op("get-me", http.MethodGet, "/api/me", scopeAccountRead, "The logged-in user"),
+		func(ctx context.Context, _ *struct{}) (*MeOutput, error) {
+			u := userOf(ctx)
+			return &MeOutput{Body: Me{Name: u.Name, Email: u.Email, Verified: u.Verified}}, nil
+		})
 }
 
 // login checks the credentials, counts failures against the IP and user rate limits and starts a session on success; unverified accounts get a 403.
-func (s *Server) login(w http.ResponseWriter, r *http.Request) {
-	name := strings.ToLower(strings.TrimSpace(r.PostFormValue("name")))
-	password := r.PostFormValue("password")
-	next := safeNext(r.PostFormValue("next"))
-	ip := s.clientIP(r)
-
-	if on, ok := s.maintenance(w, r); !ok {
-		return
-	} else if on {
-		s.render(w, http.StatusServiceUnavailable, "login", loginData{Next: next, Maintenance: true})
-		return
+func (s *Server) login(ctx context.Context, in *LoginInput) (*SessionOutput, error) {
+	name := strings.ToLower(strings.TrimSpace(in.Body.Name))
+	ip := reqInfo(ctx).ip
+	if err := s.maintenanceErr(ctx); err != nil {
+		return nil, err
 	}
 
-	ipKey, userKey := "login:ip:"+ip, "login:user:"+strings.ToLower(name)
+	ipKey, nameKey := "login:ip:"+ip, "login:user:"+name
 	for _, l := range []struct {
 		key string
 		max int
-	}{{ipKey, loginIPMax}, {userKey, loginUserMax}} {
-		hit, err := s.limited(r, l.key, loginWindow, l.max)
+	}{{ipKey, loginIPMax}, {nameKey, loginUserMax}} {
+		n, err := s.Store.RateCount(ctx, l.key, loginWindow)
 		if err != nil {
-			s.fail(w, err)
-			return
+			return nil, s.storeErr(err)
 		}
-		if hit {
+		if n >= l.max {
 			metrics.Logins.WithLabelValues("rate_limited").Inc()
 			s.Log.Warn("login rate limited", "user", name, "remote", ip)
-			s.render(w, http.StatusTooManyRequests, "login", s.loginPage(next, tooMany(loginWindow)))
-			return
+			return nil, huma.Error429TooManyRequests(tooMany(loginWindow))
 		}
 	}
 
-	u, hash, err := s.Store.Credentials(r.Context(), name)
+	u, hash, err := s.Store.Credentials(ctx, name)
 	if errors.Is(err, store.ErrNotFound) {
 		hash, err = "$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinval", nil
 	}
 	if err != nil {
-		s.fail(w, err)
-		return
+		return nil, s.storeErr(err)
 	}
 	// unknown users burn a real bcrypt compare so names cannot be probed
-	if u.ID == 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
-		for _, k := range []string{ipKey, userKey} {
-			if _, err := s.Store.RateHit(r.Context(), k, loginWindow); err != nil {
+	if u.ID == 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(in.Body.Password)) != nil {
+		for _, k := range []string{ipKey, nameKey} {
+			if _, err := s.Store.RateHit(ctx, k, loginWindow); err != nil {
 				s.Log.Warn("rate limit", "err", err)
 			}
 		}
 		metrics.Logins.WithLabelValues("failure").Inc()
 		s.Log.Warn("login failed", "user", name, "remote", ip)
-		s.render(w, http.StatusUnauthorized, "login", s.loginPage(next, "Wrong user name or password."))
-		return
+		return nil, huma.Error401Unauthorized("Wrong user name or password.")
 	}
 	if !u.Verified {
-		d := s.loginPage(next, "")
-		d.Notice, d.Unverified = notices["unverified"], u.Name
-		s.render(w, http.StatusForbidden, "login", d)
-		return
+		return nil, huma.Error403Forbidden("Your address is not confirmed yet. Open the link from the mail we sent you, or request a new one.")
 	}
-	if err := s.startSession(w, r, u.ID); err != nil {
-		s.fail(w, err)
-		return
+	c, err := s.newSession(ctx, u.ID)
+	if err != nil {
+		return nil, s.storeErr(err)
 	}
 	metrics.Logins.WithLabelValues("success").Inc()
 	s.Log.Info("login", "user", name)
-	http.Redirect(w, r, next, http.StatusSeeOther)
+	return &SessionOutput{SetCookie: c}, nil
 }
 
-// startSession stores a new session for userID and sets its cookie.
-func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int64) error {
+// newSession stores a new session for userID and returns its cookie.
+func (s *Server) newSession(ctx context.Context, userID int64) (http.Cookie, error) {
 	token, sid := newSessionToken()
-	if err := s.Store.CreateSession(r.Context(), sid, userID, time.Now().Add(sessionIdle)); err != nil {
+	if err := s.Store.CreateSession(ctx, sid, userID, time.Now().Add(sessionIdle)); err != nil {
+		return http.Cookie{}, err
+	}
+	return http.Cookie{
+		Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: reqInfo(ctx).secure,
+		SameSite: http.SameSiteLaxMode, MaxAge: int(sessionTTL.Seconds()),
+	}, nil
+}
+
+// startSession stores a new session for userID and sets its cookie on a template response.
+func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int64) error {
+	ctx := context.WithValue(r.Context(), reqKey, requestInfo{secure: secureCookie(r)})
+	c, err := s.newSession(ctx, userID)
+	if err != nil {
 		return err
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: secureCookie(r),
-		SameSite: http.SameSiteLaxMode, MaxAge: int(sessionTTL.Seconds()),
-	})
+	http.SetCookie(w, &c)
 	return nil
 }
 
 var userNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$`)
 
+const userNameRule = "User name: 3 to 32 characters, letters, digits, . _ -, starting with a letter or digit"
+
 // ValidateCredentials returns the user name and password rule violations; empty means valid.
 func ValidateCredentials(name, password string) []string {
 	var errs []string
 	if !userNameRe.MatchString(name) {
-		errs = append(errs, "User name: 3 to 32 characters, letters, digits, . _ -, starting with a letter or digit")
+		errs = append(errs, userNameRule)
 	}
 	return append(errs, validatePassword(password)...)
 }
@@ -276,84 +290,62 @@ func validatePassword(password string) []string {
 	return errs
 }
 
-type registerData struct {
-	base
-	Name   string
-	Email  string
-	Errors []string
+type RegisterInput struct {
+	Body struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 }
 
-// registerForm renders GET /register (503 in maintenance mode) or redirects to / when a session exists.
-func (s *Server) registerForm(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.sessionUser(r); err == nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+// register handles POST /api/register: per-IP rate limit, validation, account creation and the confirmation mail.
+func (s *Server) register(ctx context.Context, in *RegisterInput) (*struct{}, error) {
+	if !s.Registration || s.Mail == nil {
+		return nil, huma.Error404NotFound("Registration is closed")
 	}
-	if on, ok := s.maintenance(w, r); !ok {
-		return
-	} else if on {
-		s.render(w, http.StatusServiceUnavailable, "login", loginData{Maintenance: true})
-		return
+	if err := s.maintenanceErr(ctx); err != nil {
+		return nil, err
 	}
-	s.render(w, http.StatusOK, "register", registerData{})
-}
-
-// register handles POST /register: per-IP rate limit, validation, account creation and the confirmation mail, then redirects to /login.
-func (s *Server) register(w http.ResponseWriter, r *http.Request) {
-	if on, ok := s.maintenance(w, r); !ok {
-		return
-	} else if on {
-		s.render(w, http.StatusServiceUnavailable, "login", loginData{Maintenance: true})
-		return
-	}
-	ip := s.clientIP(r)
-	n, err := s.Store.RateHit(r.Context(), "register:ip:"+ip, registerWindow)
+	ip := reqInfo(ctx).ip
+	n, err := s.Store.RateHit(ctx, "register:ip:"+ip, registerWindow)
 	if err != nil {
-		s.fail(w, err)
-		return
+		return nil, s.storeErr(err)
 	}
 	if n > registerIPMax {
 		s.Log.Warn("registration rate limited", "remote", ip)
-		s.render(w, http.StatusTooManyRequests, "register", registerData{Errors: []string{tooMany(registerWindow)}})
-		return
+		return nil, huma.Error429TooManyRequests(tooMany(registerWindow))
 	}
-	name := strings.ToLower(strings.TrimSpace(r.PostFormValue("name")))
-	email := validEmail(r.PostFormValue("email"))
-	password := r.PostFormValue("password")
-	errs := ValidateCredentials(name, password)
+	name := strings.ToLower(strings.TrimSpace(in.Body.Name))
+	email := validEmail(in.Body.Email)
+	var errs []error
+	if !userNameRe.MatchString(name) {
+		errs = append(errs, &huma.ErrorDetail{Location: "body.name", Message: userNameRule, Value: in.Body.Name})
+	}
 	if email == "" {
-		errs = append(errs, "Email: not a valid address")
+		errs = append(errs, &huma.ErrorDetail{Location: "body.email", Message: "Email: not a valid address", Value: in.Body.Email})
 	}
-	if password != r.PostFormValue("password2") {
-		errs = append(errs, "Passwords do not match")
+	for _, m := range validatePassword(in.Body.Password) {
+		errs = append(errs, &huma.ErrorDetail{Location: "body.password", Message: m})
 	}
-	d := registerData{Name: name, Email: r.PostFormValue("email")}
 	if len(errs) > 0 {
-		d.Errors = errs
-		s.render(w, http.StatusUnprocessableEntity, "register", d)
-		return
+		return nil, huma.Error422UnprocessableEntity("Invalid input", errs...)
 	}
-	hash, err := HashPassword(password)
+	hash, err := HashPassword(in.Body.Password)
 	if err != nil {
-		s.fail(w, err)
-		return
+		return nil, s.storeErr(err)
 	}
-	id, err := s.Store.Register(r.Context(), name, email, hash)
+	id, err := s.Store.Register(ctx, name, email, hash)
 	if errors.Is(err, store.ErrExists) {
-		d.Errors = []string{"User name or address is already taken"}
-		s.render(w, http.StatusUnprocessableEntity, "register", d)
-		return
+		return nil, huma.Error409Conflict("User name or address is already taken")
 	}
 	if err != nil {
-		s.fail(w, err)
-		return
+		return nil, s.storeErr(err)
 	}
-	if err := s.sendLink(r, store.User{ID: id, Name: name}, email, store.TokenVerify); err != nil {
-		s.fail(w, err)
-		return
+	if err := s.sendLink(ctx, store.User{ID: id, Name: name}, email, store.TokenVerify); err != nil {
+		return nil, s.storeErr(err)
 	}
 	s.Log.Info("registered", "user", name, "remote", ip)
-	http.Redirect(w, r, "/login?msg=registered", http.StatusSeeOther)
+	return nil, nil
 }
 
 // logout deletes the session, clears the cookie and redirects to /login.
@@ -365,13 +357,4 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1})
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
-}
-
-// safeNext returns next only if it is a local path, otherwise /, so login cannot redirect off site.
-func safeNext(next string) string {
-	// "//host" and "/\host" (browsers turn \ into /) would leave the site
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {
-		return "/"
-	}
-	return next
 }

@@ -18,7 +18,7 @@ test('rejects a wrong password', async ({ page }) => {
   await page.locator('[name=name]').fill(user)
   await page.locator('[name=password]').fill('not-the-password')
   await page.locator('[name=password]').press('Enter')
-  await expect(c(page, '.alert-error', 'Wrong user name or password.')).toBeVisible()
+  await expect(c(page, '[role=alert]', 'Wrong user name or password.')).toBeVisible()
   expect(await session(page)).toBeUndefined()
 })
 

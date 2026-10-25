@@ -8,7 +8,7 @@ const backend = process.env.BACKEND ?? 'http://localhost:8080';
 // Everything the Go server answers itself. The second line lists the template pages not yet ported to the SPA.
 const goPaths =
 	'^/(api|admin|tiles|healthz|readyz|robots\\.txt)(/|$)|^/(links|coverages|s)/.+\\.(png|pdf)(\\?|$)|^/coverages/\\d+/events' +
-	'|^/(\\?.*)?$|^/(login|register|forgot|reset|verify|logout|sites|links|coverages|antennas|account|static|s)(/|\\?|$)';
+	'|^/(\\?.*)?$|^/(logout|sites|links|coverages|antennas|account|static|s)(/|\\?|$)';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],

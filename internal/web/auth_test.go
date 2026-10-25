@@ -7,23 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"testing/fstest"
 )
-
-func TestSafeNext(t *testing.T) {
-	for in, want := range map[string]string{
-		"":                 "/",
-		"/links/3":         "/links/3",
-		"//evil.example":   "/",
-		`/\evil.example`:   "/",
-		"https://evil.com": "/",
-		"links":            "/",
-	} {
-		if got := safeNext(in); got != want {
-			t.Errorf("safeNext(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
 
 func TestValidateCredentialsLength(t *testing.T) {
 	if errs := ValidateCredentials("hb9hil", strings.Repeat("x", 72)); len(errs) != 0 {
@@ -85,12 +69,21 @@ func TestValidEmail(t *testing.T) {
 }
 
 func TestMailRoutesNeedMailer(t *testing.T) {
-	h := (&Server{Log: slog.Default(), UI: fstest.MapFS{"index.html": {Data: []byte("spa")}}}).Handler()
-	for _, path := range []string{"/forgot", "/reset/abc", "/verify/abc"} {
+	h := (&Server{Log: slog.Default()}).Handler()
+	for _, tc := range []struct{ method, path, body string }{
+		{"POST", "/api/verify", `{"token":"abc"}`},
+		{"POST", "/api/verify/resend", `{"name":"hb9hil"}`},
+		{"POST", "/api/password/forgot", `{"email":"op@example.org"}`},
+		{"GET", "/api/password/reset/abc", ""},
+		{"POST", "/api/password/reset", `{"token":"abc","password":"0123456789"}`},
+		{"POST", "/api/register", `{"name":"hb9hil","email":"op@example.org","password":"0123456789"}`},
+	} {
+		r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+		r.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
-		if w.Code != http.StatusOK || w.Body.String() != "spa" {
-			t.Errorf("%s without mailer: %d %q, want the SPA fallback", path, w.Code, w.Body.String())
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusNotFound || w.Header().Get("Content-Type") != "application/problem+json" {
+			t.Errorf("%s %s without mailer: %d %s", tc.method, tc.path, w.Code, w.Header().Get("Content-Type"))
 		}
 	}
 }

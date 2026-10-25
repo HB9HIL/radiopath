@@ -181,8 +181,17 @@ func newLogger(c config) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: c.logLevel}))
 }
 
-// main runs a user subcommand when given arguments, otherwise the server until SIGINT/SIGTERM.
+// main prints the OpenAPI description or runs a user subcommand when given arguments, otherwise the server until SIGINT/SIGTERM.
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "openapi" {
+		spec, err := (&web.Server{Version: version}).OpenAPI()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Stdout.Write(append(spec, '\n'))
+		return
+	}
 	if len(os.Args) > 1 {
 		os.Exit(userCommand(os.Args[1:]))
 	}

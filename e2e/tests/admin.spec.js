@@ -28,7 +28,7 @@ test('creates a user, blocks logins, deletes the user', async ({ page }) => {
 
   await c(page, 'button', 'Maintenance mode').click()
   await expect(c(page, '.badge', 'maintenance')).toBeVisible()
-  expect(await status(page, '/login', { method: 'POST', form: { name: 'carol', password: 'carol-password-1', next: '/' } })).toBe(503)
+  expect(await status(page, '/api/session', { method: 'POST', data: { name: 'carol', password: 'carol-password-1' } })).toBe(503)
   await c(page, 'button', 'Allow logins again').click()
   await expect(c(page, '.badge', 'open')).toBeVisible()
   await login(page, 'carol', 'carol-password-1')

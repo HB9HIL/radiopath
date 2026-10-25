@@ -10,9 +10,9 @@ import (
 )
 
 // instrument records request count by route, method and status plus the duration for every request passing through next.
-func instrument(root, app *http.ServeMux, next http.Handler) http.Handler {
+func instrument(root *http.ServeMux, subs map[string]*http.ServeMux, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		route := routeLabel(root, app, r)
+		route := routeLabel(root, subs, r)
 		rec := &recorder{ResponseWriter: w, code: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
@@ -23,10 +23,10 @@ func instrument(root, app *http.ServeMux, next http.Handler) http.Handler {
 }
 
 // routeLabel returns the matched route pattern without its method as the metric label, so IDs and tokens do not blow up cardinality; unmatched requests give "other".
-func routeLabel(root, app *http.ServeMux, r *http.Request) string {
+func routeLabel(root *http.ServeMux, subs map[string]*http.ServeMux, r *http.Request) string {
 	_, pattern := root.Handler(r)
-	if pattern == "/" {
-		_, pattern = app.Handler(r)
+	if sub, ok := subs[pattern]; ok {
+		_, pattern = sub.Handler(r)
 	}
 	if _, path, ok := strings.Cut(pattern, " "); ok {
 		return path

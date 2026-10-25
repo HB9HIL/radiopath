@@ -58,21 +58,14 @@ func TestRenderPages(t *testing.T) {
 		page string
 		data any
 	}{
-		{"login", loginData{Next: "/", Registration: true, Forgot: true, Notice: notices["registered"]}},
 		{"account", accountData{base: base{User: "hb9hil"}, Email: "op@example.org", Verified: true, Notice: notices["sent"]}},
 		{"account", accountData{base: base{User: "hb9hil"}, Errors: []string{"Current password is wrong"}}},
-		{"forgot", forgotData{Notice: notices["forgot"]}},
 		{"notfound", base{}},
-		{"reset", resetData{Token: "abc"}},
-		{"reset", resetData{Errors: []string{staleLink}}},
-		{"login", loginData{Maintenance: true}},
-		{"login", loginData{Notice: notices["unverified"], Unverified: "hb9hil", Forgot: true}},
 		{"admin_login", adminLoginData{base: base{Admin: true}, Error: "Wrong token."}},
 		{"admin_users", adminData{base: base{Admin: true}, Notice: "hb9hil: 2 session(s) revoked",
 			Users:       []store.UserStat{{User: store.User{ID: 1, Name: "hb9hil", CreatedAt: now}, Sessions: 2, LastLogin: &now}},
 			PendingUser: "hb9hil", Maintenance: true}},
 		{"admin_users", adminData{base: base{Admin: true}, Errors: []string{"No such user: nope"}}},
-		{"register", registerData{Name: "hb9hil", Email: "op@example.org", Errors: []string{"nope"}}},
 		{"sites_list", struct {
 			base
 			Sites []store.Site

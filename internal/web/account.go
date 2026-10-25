@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/radiopath/radiopath/internal/store"
@@ -25,14 +27,9 @@ const (
 )
 
 var notices = map[string]string{
-	"registered": "Almost done: open the confirmation link we sent to your address, then log in.",
-	"unverified": "Your address is not confirmed yet. Open the link from the mail we sent you, or request a new one.",
-	"resent":     "If that account is waiting for confirmation, a new link is on its way.",
-	"verified":   "Address confirmed.",
-	"forgot":     "If that address belongs to an account, a reset link is on its way.",
-	"reset":      "Password changed. Log in with the new one.",
-	"sent":       "Confirmation link sent to the new address. It takes effect once you open it.",
-	"password":   "Password changed. Other devices have been logged out.",
+	"verified": "Address confirmed.",
+	"sent":     "Confirmation link sent to the new address. It takes effect once you open it.",
+	"password": "Password changed. Other devices have been logged out.",
 }
 
 // notice returns the message for the ?msg= key of the request, or an empty string.
@@ -69,21 +66,21 @@ func validEmail(s string) string {
 }
 
 // sendLink stores a one-time token for purpose and mails the matching confirm or reset link to email.
-func (s *Server) sendLink(r *http.Request, u store.User, email, purpose string) error {
+func (s *Server) sendLink(ctx context.Context, u store.User, email, purpose string) error {
 	token, id := newSessionToken()
 	ttl, path, subject, text := resetTTL, "/reset/", "Reset your Radiopath password", resetMail
 	if purpose == store.TokenVerify {
 		ttl, path, subject, text = verifyTTL, "/verify/", "Confirm your Radiopath address", verifyMail
 	}
-	if err := s.Store.CreateEmailToken(r.Context(), id, u.ID, email, purpose, time.Now().Add(ttl)); err != nil {
+	if err := s.Store.CreateEmailToken(ctx, id, u.ID, email, purpose, time.Now().Add(ttl)); err != nil {
 		return err
 	}
-	return s.Mail.Send(r.Context(), email, subject, fmt.Sprintf(text, u.Name, s.BaseURL+path+token))
+	return s.Mail.Send(ctx, email, subject, fmt.Sprintf(text, u.Name, s.BaseURL+path+token))
 }
 
 // sendVerification mails a confirmation link, limited per user; sent is false when the limit was hit.
-func (s *Server) sendVerification(r *http.Request, u store.User, email string) (bool, error) {
-	n, err := s.Store.RateHit(r.Context(), fmt.Sprintf("verify:user:%d", u.ID), mailWindow)
+func (s *Server) sendVerification(ctx context.Context, u store.User, email string) (bool, error) {
+	n, err := s.Store.RateHit(ctx, fmt.Sprintf("verify:user:%d", u.ID), mailWindow)
 	if err != nil {
 		return false, err
 	}
@@ -91,25 +88,7 @@ func (s *Server) sendVerification(r *http.Request, u store.User, email string) (
 		s.Log.Warn("confirmation mail rate limited", "user", u.Name)
 		return false, nil
 	}
-	return true, s.sendLink(r, u, email, store.TokenVerify)
-}
-
-// resendVerification handles POST /verify/resend; it redirects the same way for unknown and verified names so accounts cannot be probed.
-func (s *Server) resendVerification(w http.ResponseWriter, r *http.Request) {
-	name := strings.ToLower(strings.TrimSpace(r.PostFormValue("name")))
-	u, _, err := s.Store.Credentials(r.Context(), name)
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		s.fail(w, err)
-		return
-	}
-	if err == nil && !u.Verified {
-		if _, err := s.sendVerification(r, u, u.Email); err != nil {
-			s.fail(w, err)
-			return
-		}
-		s.Log.Info("confirmation resent", "user", u.Name)
-	}
-	http.Redirect(w, r, "/login?msg=resent", http.StatusSeeOther)
+	return true, s.sendLink(ctx, u, email, store.TokenVerify)
 }
 
 type accountData struct {
@@ -143,7 +122,7 @@ func (s *Server) accountEmail(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/account", http.StatusSeeOther)
 		return
 	}
-	sent, err := s.sendVerification(r, u, email)
+	sent, err := s.sendVerification(r.Context(), u, email)
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -177,7 +156,7 @@ func (s *Server) accountPassword(w http.ResponseWriter, r *http.Request) {
 		s.accountPage(w, r, http.StatusUnprocessableEntity, errs)
 		return
 	}
-	if err := s.setPassword(r, u, password); err != nil {
+	if err := s.setPassword(r.Context(), u, password); err != nil {
 		s.fail(w, err)
 		return
 	}
@@ -190,146 +169,182 @@ func (s *Server) accountPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 // setPassword stores the new hash for u and revokes all of its sessions.
-func (s *Server) setPassword(r *http.Request, u store.User, password string) error {
+func (s *Server) setPassword(ctx context.Context, u store.User, password string) error {
 	hash, err := HashPassword(password)
 	if err != nil {
 		return err
 	}
-	if err := s.Store.SetPassword(r.Context(), u.Name, hash); err != nil {
+	if err := s.Store.SetPassword(ctx, u.Name, hash); err != nil {
 		return err
 	}
-	_, err = s.Store.DeleteUserSessions(r.Context(), u.Name)
+	_, err = s.Store.DeleteUserSessions(ctx, u.Name)
 	return err
 }
 
-type forgotData struct {
-	base
-	Notice string
-	Errors []string
+type NameInput struct {
+	Body struct {
+		Name string `json:"name"`
+	}
 }
 
-// forgotForm renders GET /forgot.
-func (s *Server) forgotForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, http.StatusOK, "forgot", forgotData{Notice: notice(r)})
+type EmailInput struct {
+	Body struct {
+		Email string `json:"email"`
+	}
 }
 
-// forgot handles POST /forgot: rate limits per IP and address, mails a reset link if the address exists and answers the same either way.
-func (s *Server) forgot(w http.ResponseWriter, r *http.Request) {
-	email := validEmail(r.PostFormValue("email"))
-	if email == "" {
-		s.render(w, http.StatusUnprocessableEntity, "forgot", forgotData{Errors: []string{"Email: not a valid address"}})
-		return
+type TokenInput struct {
+	Body struct {
+		Token string `json:"token" doc:"The token from the mailed link"`
 	}
-	for _, l := range []struct {
-		key string
-		max int
-	}{{"forgot:ip:" + s.clientIP(r), forgotIPMax}, {"forgot:mail:" + strings.ToLower(email), forgotMailMax}} {
-		n, err := s.Store.RateHit(r.Context(), l.key, mailWindow)
-		if err != nil {
-			s.fail(w, err)
-			return
-		}
-		if n > l.max {
-			s.Log.Warn("reset rate limited", "remote", s.clientIP(r))
-			s.render(w, http.StatusTooManyRequests, "forgot", forgotData{Errors: []string{tooMany(mailWindow)}})
-			return
-		}
-	}
-	u, err := s.Store.UserByEmail(r.Context(), email)
-	if errors.Is(err, store.ErrNotFound) {
-		s.Log.Info("reset requested for unknown address", "remote", s.clientIP(r))
-		http.Redirect(w, r, "/forgot?msg=forgot", http.StatusSeeOther)
-		return
-	}
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	if err := s.sendLink(r, u, email, store.TokenReset); err != nil {
-		s.fail(w, err)
-		return
-	}
-	s.Log.Info("reset link sent", "user", u.Name)
-	http.Redirect(w, r, "/forgot?msg=forgot", http.StatusSeeOther)
 }
 
-type resetData struct {
-	base
-	Token  string
-	Errors []string
+type ResetInput struct {
+	Body struct {
+		Token    string `json:"token" doc:"The token from the mailed link"`
+		Password string `json:"password"`
+	}
 }
 
 const staleLink = "This link has expired or was already used. Request a new one."
 
-// resetForm renders GET /reset/{token}, or 410 when the token is expired or used.
-func (s *Server) resetForm(w http.ResponseWriter, r *http.Request) {
-	token := r.PathValue("token")
-	ok, err := s.Store.EmailTokenValid(r.Context(), sessionID(token), store.TokenReset)
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	if !ok {
-		s.render(w, http.StatusGone, "reset", resetData{Errors: []string{staleLink}})
-		return
-	}
-	s.render(w, http.StatusOK, "reset", resetData{Token: token})
-}
+// registerMailFlows registers address confirmation and password reset; without a mailer every one answers 404.
+func (s *Server) registerMailFlows(api huma.API) {
+	noMail := huma.Error404NotFound("Mail is not configured")
 
-// reset handles POST /reset/{token}: validates the new password, consumes the token, sets the password and redirects to /login.
-func (s *Server) reset(w http.ResponseWriter, r *http.Request) {
-	token := r.PathValue("token")
-	password := r.PostFormValue("password")
-	errs := validatePassword(password)
-	if password != r.PostFormValue("password2") {
-		errs = append(errs, "Passwords do not match")
-	}
-	if len(errs) > 0 {
-		s.render(w, http.StatusUnprocessableEntity, "reset", resetData{Token: token, Errors: errs})
-		return
-	}
-	u, _, err := s.Store.ConsumeEmailToken(r.Context(), sessionID(token), store.TokenReset)
-	if errors.Is(err, store.ErrNotFound) {
-		s.render(w, http.StatusGone, "reset", resetData{Errors: []string{staleLink}})
-		return
-	}
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	if err := s.setPassword(r, u, password); err != nil {
-		s.fail(w, err)
-		return
-	}
-	s.Log.Info("password reset", "user", u.Name)
-	http.Redirect(w, r, "/login?msg=reset", http.StatusSeeOther)
-}
+	o := op("verify-email", http.MethodPost, "/api/verify", "", "Confirm an address with the token from the mail")
+	o.DefaultStatus = http.StatusNoContent
+	o.Errors = []int{http.StatusNotFound, http.StatusConflict, http.StatusGone}
+	o.Description = "410 for an expired or used token, 409 if another account owns the address."
+	huma.Register(api, o, func(ctx context.Context, in *TokenInput) (*struct{}, error) {
+		if s.Mail == nil {
+			return nil, noMail
+		}
+		u, email, err := s.Store.ConsumeEmailToken(ctx, sessionID(in.Body.Token), store.TokenVerify)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, huma.Error410Gone("This confirmation link has expired or was already used. Log in to get a new one.")
+		}
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		err = s.Store.SetEmail(ctx, u.ID, email)
+		if errors.Is(err, store.ErrExists) {
+			return nil, huma.Error409Conflict("That address is already used by another account.")
+		}
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		s.Log.Info("email confirmed", "user", u.Name)
+		return nil, nil
+	})
 
-// verify handles GET /verify/{token}: consumes the token and saves the confirmed address; 410 for a stale link, 409 if another account owns the address.
-func (s *Server) verify(w http.ResponseWriter, r *http.Request) {
-	u, email, err := s.Store.ConsumeEmailToken(r.Context(), sessionID(r.PathValue("token")), store.TokenVerify)
-	if errors.Is(err, store.ErrNotFound) {
-		d := s.loginPage("/", "This confirmation link has expired or was already used. Log in to get a new one.")
-		s.render(w, http.StatusGone, "login", d)
-		return
-	}
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	err = s.Store.SetEmail(r.Context(), u.ID, email)
-	if errors.Is(err, store.ErrExists) {
-		s.render(w, http.StatusConflict, "login", s.loginPage("/", "That address is already used by another account."))
-		return
-	}
-	if err != nil {
-		s.fail(w, err)
-		return
-	}
-	s.Log.Info("email confirmed", "user", u.Name)
-	if _, err := s.sessionUser(r); err == nil {
-		http.Redirect(w, r, "/account?msg=verified", http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, "/login?msg=verified", http.StatusSeeOther)
+	o = op("resend-verification", http.MethodPost, "/api/verify/resend", "", "Mail a new confirmation link to an unconfirmed account")
+	o.DefaultStatus = http.StatusNoContent
+	o.Description = "Answers the same for unknown and confirmed names, so accounts cannot be probed."
+	huma.Register(api, o, func(ctx context.Context, in *NameInput) (*struct{}, error) {
+		if s.Mail == nil {
+			return nil, noMail
+		}
+		u, _, err := s.Store.Credentials(ctx, strings.ToLower(strings.TrimSpace(in.Body.Name)))
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, s.storeErr(err)
+		}
+		if err == nil && !u.Verified {
+			if _, err := s.sendVerification(ctx, u, u.Email); err != nil {
+				return nil, s.storeErr(err)
+			}
+			s.Log.Info("confirmation resent", "user", u.Name)
+		}
+		return nil, nil
+	})
+
+	o = op("forgot-password", http.MethodPost, "/api/password/forgot", "", "Mail a password reset link")
+	o.DefaultStatus = http.StatusNoContent
+	o.Errors = []int{http.StatusNotFound, http.StatusTooManyRequests}
+	o.Description = "Answers the same whether the address belongs to an account or not."
+	huma.Register(api, o, func(ctx context.Context, in *EmailInput) (*struct{}, error) {
+		if s.Mail == nil {
+			return nil, noMail
+		}
+		email := validEmail(in.Body.Email)
+		if email == "" {
+			return nil, huma.Error422UnprocessableEntity("Invalid input",
+				&huma.ErrorDetail{Location: "body.email", Message: "Email: not a valid address", Value: in.Body.Email})
+		}
+		ip := reqInfo(ctx).ip
+		for _, l := range []struct {
+			key string
+			max int
+		}{{"forgot:ip:" + ip, forgotIPMax}, {"forgot:mail:" + strings.ToLower(email), forgotMailMax}} {
+			n, err := s.Store.RateHit(ctx, l.key, mailWindow)
+			if err != nil {
+				return nil, s.storeErr(err)
+			}
+			if n > l.max {
+				s.Log.Warn("reset rate limited", "remote", ip)
+				return nil, huma.Error429TooManyRequests(tooMany(mailWindow))
+			}
+		}
+		u, err := s.Store.UserByEmail(ctx, email)
+		if errors.Is(err, store.ErrNotFound) {
+			s.Log.Info("reset requested for unknown address", "remote", ip)
+			return nil, nil
+		}
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		if err := s.sendLink(ctx, u, email, store.TokenReset); err != nil {
+			return nil, s.storeErr(err)
+		}
+		s.Log.Info("reset link sent", "user", u.Name)
+		return nil, nil
+	})
+
+	o = op("check-reset-token", http.MethodGet, "/api/password/reset/{token}", "", "Check that a reset token is still valid")
+	o.DefaultStatus = http.StatusNoContent
+	o.Errors = []int{http.StatusNotFound, http.StatusGone}
+	huma.Register(api, o, func(ctx context.Context, in *struct {
+		Token string `path:"token"`
+	}) (*struct{}, error) {
+		if s.Mail == nil {
+			return nil, noMail
+		}
+		ok, err := s.Store.EmailTokenValid(ctx, sessionID(in.Token), store.TokenReset)
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		if !ok {
+			return nil, huma.Error410Gone(staleLink)
+		}
+		return nil, nil
+	})
+
+	o = op("reset-password", http.MethodPost, "/api/password/reset", "", "Set a new password with the token from the mail")
+	o.DefaultStatus = http.StatusNoContent
+	o.Errors = []int{http.StatusNotFound, http.StatusGone}
+	o.Description = "Logs out every session of the account."
+	huma.Register(api, o, func(ctx context.Context, in *ResetInput) (*struct{}, error) {
+		if s.Mail == nil {
+			return nil, noMail
+		}
+		var errs []error
+		for _, m := range validatePassword(in.Body.Password) {
+			errs = append(errs, &huma.ErrorDetail{Location: "body.password", Message: m})
+		}
+		if len(errs) > 0 {
+			return nil, huma.Error422UnprocessableEntity("Invalid input", errs...)
+		}
+		u, _, err := s.Store.ConsumeEmailToken(ctx, sessionID(in.Body.Token), store.TokenReset)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, huma.Error410Gone(staleLink)
+		}
+		if err != nil {
+			return nil, s.storeErr(err)
+		}
+		if err := s.setPassword(ctx, u, in.Body.Password); err != nil {
+			return nil, s.storeErr(err)
+		}
+		s.Log.Info("password reset", "user", u.Name)
+		return nil, nil
+	})
 }
