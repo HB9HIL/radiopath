@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { ApiError, api, call } from '$lib/api';
+	import AuthCard from '$lib/AuthCard.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
@@ -43,15 +44,12 @@
 	}
 </script>
 
-<svelte:head><title>New password – Radiopath</title></svelte:head>
-
-<div class="mx-auto mt-10 w-full max-w-[26rem]">
-	<h1 class="mb-4 text-lg font-semibold">Choose a new password</h1>
+<AuthCard title="Choose a new password">
 	{#if stale}
 		<FormErrors error={stale} />
-		<p class="text-xs"><a class="text-primary" href="/forgot">Request a new link</a></p>
+		<a class="text-xs text-primary" href="/forgot">Request a new link</a>
 	{:else}
-		<form class="grid gap-4 rounded-lg border bg-card p-5" onsubmit={submit}>
+		<form class="grid gap-4" onsubmit={submit}>
 			<Field label="New password">
 				<!-- svelte-ignore a11y_autofocus -->
 				<Input name="password" type="password" autocomplete="new-password" minlength={10} autofocus required bind:value={password} />
@@ -59,8 +57,11 @@
 			<Field label="Repeat"
 				><Input name="password2" type="password" autocomplete="new-password" minlength={10} required bind:value={password2} /></Field
 			>
-			<div><Button type="submit" disabled={busy}>Set password</Button></div>
+			<Button type="submit" class="w-full" disabled={busy}>Set password</Button>
 		</form>
-		<p class="mt-3 text-xs text-muted-foreground">At least 10 characters. Every open session of the account is logged out.</p>
+		<p class="text-xs text-muted-foreground">At least 10 characters. Every open session of the account is logged out.</p>
 	{/if}
-</div>
+	{#snippet below()}
+		<a class="text-primary" href="/login">Back to login</a>
+	{/snippet}
+</AuthCard>

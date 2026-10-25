@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { api, call } from '$lib/api';
+	import AuthCard from '$lib/AuthCard.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
 
 	// The mail link carries the token in the fragment, which never reaches a server or its logs.
@@ -23,14 +24,13 @@
 	});
 </script>
 
-<svelte:head><title>Confirm address – Radiopath</title></svelte:head>
-
-<div class="mx-auto mt-10 w-full max-w-[26rem]">
-	<h1 class="mb-4 text-lg font-semibold">Confirm address</h1>
+<AuthCard title="Confirm address">
 	{#if error}
 		<FormErrors {error} />
-		<a class="text-primary" href="/login">Back to login</a>
 	{:else}
 		<p class="text-muted-foreground">Confirming …</p>
 	{/if}
-</div>
+	{#snippet below()}
+		<a class="text-primary" href="/login">Back to login</a>
+	{/snippet}
+</AuthCard>

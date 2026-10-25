@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { ApiError, api, call, configQuery, meQuery, safeNext } from '$lib/api';
+	import AuthCard from '$lib/AuthCard.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -63,7 +64,6 @@
 </script>
 
 <svelte:head>
-	<title>Radiopath – radio link and coverage planning</title>
 	<meta
 		name="description"
 		content="Radiopath plans radio links and area coverage: terrain profiles from Copernicus GLO-30, Longley-Rice/ITM path loss, Fresnel zone, link budget with real antenna patterns, and PDF reports."
@@ -71,58 +71,34 @@
 	<link rel="canonical" href="/login" />
 </svelte:head>
 
-<div class="mx-auto mt-10 grid w-full max-w-4xl gap-8 md:grid-cols-[26rem_minmax(0,1fr)]">
-	<div>
-		<h1 class="mb-4 text-lg font-semibold">Log in</h1>
-		{#if config.data?.maintenance}
-			<Alert.Root class="border-warn/50 text-warn">
-				<b>Maintenance</b><br />Radiopath is closed for maintenance. Logins are disabled, please try again later.
-			</Alert.Root>
-		{:else}
-			{#if unverified}
-				<Notice>{unverified}</Notice>
-				<div class="flex flex-wrap items-center gap-4">
-					<Button onclick={resend}>Resend confirmation mail</Button>
-					<button class="text-primary" onclick={() => (unverified = '')}>Back to login</button>
-				</div>
-			{:else}
-				<form class="grid gap-4 rounded-lg border bg-card p-5" onsubmit={submit}>
-					<Field label="User name">
-						<!-- svelte-ignore a11y_autofocus -->
-						<Input name="name" autocomplete="username" autofocus required bind:value={name} />
-					</Field>
-					<Field label="Password"><Input name="password" type="password" autocomplete="current-password" required bind:value={password} /></Field>
-					<div class="flex flex-wrap items-center gap-4">
-						<Button type="submit" disabled={busy}>Log in</Button>
-						{#if config.data?.registration}<a class="text-primary" href="/register">Create an account</a>{/if}
-						{#if config.data?.password_reset}<a class="text-primary" href="/forgot">Forgot password?</a>{/if}
-					</div>
-				</form>
-			{/if}
-			{#if config.data && !config.data.registration}
-				<p class="mt-3 text-xs text-muted-foreground">Registration is closed while the service is under development.</p>
-			{/if}
+<AuthCard title="Log in" noindex={false}>
+	{#if config.data?.maintenance}
+		<Alert.Root class="border-warn/50 text-warn">
+			<b>Maintenance</b><br />Radiopath is closed for maintenance. Logins are disabled, please try again later.
+		</Alert.Root>
+	{:else if unverified}
+		<Notice>{unverified}</Notice>
+		<div class="flex flex-wrap items-center gap-4">
+			<Button onclick={resend}>Resend confirmation mail</Button>
+			<button class="text-primary" onclick={() => (unverified = '')}>Back to login</button>
+		</div>
+	{:else}
+		<form class="grid gap-4" onsubmit={submit}>
+			<Field label="User name or email">
+				<!-- svelte-ignore a11y_autofocus -->
+				<Input name="name" autocomplete="username" autofocus required bind:value={name} />
+			</Field>
+			<Field label="Password"><Input name="password" type="password" autocomplete="current-password" required bind:value={password} /></Field>
+			{#if config.data?.password_reset}<a class="-mt-2 justify-self-end text-xs text-primary" href="/forgot">Forgot password?</a>{/if}
+			<Button type="submit" class="w-full" disabled={busy}>Log in</Button>
+		</form>
+	{/if}
+	{#snippet below()}
+		{#if config.data?.registration}
+			<span>New here? <a class="text-primary" href="/register">Create an account</a></span>
+		{:else if config.data}
+			<span>Registration is closed at the moment.</span>
 		{/if}
-	</div>
-	<div class="text-[13px] leading-relaxed text-muted-foreground md:mt-11">
-		<h2 class="text-xs font-medium text-foreground">What is Radiopath?</h2>
-		<p class="mt-2">
-			Radiopath is an independent clone of <i>Radio Mobile Online</i> (Roger Coudé, VE2DBE): radio link and coverage planning for amateur radio, rf links
-			and similar point-to-point or point-to-area systems.
-		</p>
-		<ul class="mt-3 list-disc space-y-1 pl-4">
-			<li>
-				<b class="text-foreground">Point-to-point links</b>: terrain profile from Copernicus GLO-30 elevation data (30 m, worldwide), path loss with
-				the Longley-Rice / ITM model, first Fresnel zone, link budget with real antenna patterns, and vegetation loss where a link ends in woodland
-				(ITU-R P.833).
-			</li>
-			<li><b class="text-foreground">Area coverage</b>: the link margin around a transmitter as a raster on the map, computed in the background.</li>
-			<li><b class="text-foreground">Reports</b>: every calculation as a one-page PDF.</li>
-			<li><b class="text-foreground">Sharing</b>: publish a calculation as a read-only link that works without an account, for 30 days.</li>
-		</ul>
-		<p class="mt-4 rounded-lg border px-4 py-3">
-			<b class="text-foreground">Under development.</b> The models are still being checked against measured links, so results can be off and may change
-			between versions. Accounts and stored projects can be reset without notice.
-		</p>
-	</div>
-</div>
+		<span class="basis-full">In active development: results may change between versions.</span>
+	{/snippet}
+</AuthCard>

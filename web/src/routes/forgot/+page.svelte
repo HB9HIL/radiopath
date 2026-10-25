@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import { api, call } from '$lib/api';
+	import AuthCard from '$lib/AuthCard.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Field from '$lib/Field.svelte';
@@ -23,19 +24,16 @@
 	}
 </script>
 
-<svelte:head><title>Forgot password – Radiopath</title></svelte:head>
-
-<div class="mx-auto mt-10 w-full max-w-[26rem]">
-	<h1 class="mb-4 text-lg font-semibold">Forgot password</h1>
-	<form class="grid gap-4 rounded-lg border bg-card p-5" onsubmit={submit}>
+<AuthCard title="Forgot password">
+	<form class="grid gap-4" onsubmit={submit}>
 		<Field label="Email">
 			<!-- svelte-ignore a11y_autofocus -->
 			<Input name="email" type="email" autocomplete="email" autofocus required bind:value={email} />
 		</Field>
-		<div class="flex flex-wrap items-center gap-4">
-			<Button type="submit" disabled={busy}>Send reset link</Button>
-			<a class="text-primary" href="/login">Back to login</a>
-		</div>
+		<Button type="submit" class="w-full" disabled={busy}>Send reset link</Button>
 	</form>
-	<p class="mt-3 text-xs text-muted-foreground">We mail a link to the address of your account. It is valid for one hour.</p>
-</div>
+	<p class="text-xs text-muted-foreground">We mail a link to the address of your account. It is valid for one hour.</p>
+	{#snippet below()}
+		<a class="text-primary" href="/login">Back to login</a>
+	{/snippet}
+</AuthCard>

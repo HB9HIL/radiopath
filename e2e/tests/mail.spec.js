@@ -62,6 +62,22 @@ test('resets a forgotten password', async ({ page }) => {
   await expect(page.locator('[name=password]')).toHaveCount(0)
 })
 
+test('logs in with the confirmed address, and fails with it like with a name', async ({ page }) => {
+  const attempt = async (name, pw) => {
+    await page.goto('/login')
+    await page.locator('[name=name]').fill(name)
+    await page.locator('[name=password]').fill(pw)
+    await submit(page, 'password')
+  }
+  for (const [name, pw] of [['dave@example.test', 'not-the-password'], ['nobody@example.test', 'dave-password-2']]) {
+    await attempt(name, pw)
+    await expect(toast(page, 'Wrong user name or password.')).toBeVisible()
+    expect(await session(page)).toBeUndefined()
+  }
+  await attempt('Dave@Example.test', 'dave-password-2')
+  await expect.poll(() => pathname(page)).toBe('/sites')
+})
+
 test('answers a taken address or name like a new account and tells only the mailbox', async ({ page }) => {
   const register = async (name, email) => {
     await page.goto('/register')

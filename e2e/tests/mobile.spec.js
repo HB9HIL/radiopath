@@ -63,6 +63,16 @@ test('fits the screen without scrolling sideways', async ({ page }) => {
   }
 })
 
+test('fits the guest pages to the screen', async ({ page }) => {
+  await page.context().clearCookies()
+  for (const path of ['/login', '/register', '/forgot']) {
+    await page.goto(path)
+    await expect(page.locator('main h1')).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow, path).toBeLessThanOrEqual(0)
+  }
+})
+
 test('deletes from the row menu', async ({ page }) => {
   await page.request.post('/api/sites', { data: { name: 'Throwaway', lat: 47.2, lon: 9.2, antenna_height_m: 10 } })
   await page.goto('/sites')

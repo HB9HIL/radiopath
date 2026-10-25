@@ -2,6 +2,16 @@ import { test, expect, baseURL, c, login, password, pathname, session, toast, us
 
 const user = 'auth'
 
+test('sends a guest from / to the login, the only auth page for search engines', async ({ page }) => {
+  await page.goto('/')
+  await expect.poll(() => pathname(page)).toBe('/login')
+  await expect(c(page, 'h1', 'Log in')).toBeVisible()
+  await expect(page.locator('meta[name=robots]')).toHaveCount(0)
+  await c(page, 'a', 'Create an account').click()
+  await expect(c(page, 'h1', 'Register')).toBeVisible()
+  await expect(page.locator('meta[name=robots]')).toHaveAttribute('content', 'noindex')
+})
+
 test('sends a guest to the login page and back', async ({ page }) => {
   await page.goto('/sites')
   await expect.poll(() => pathname(page)).toBe('/login')
@@ -21,7 +31,8 @@ test('stays on the site whatever next says', async ({ page }) => {
     await page.locator('[name=name]').fill(user)
     await page.locator('[name=password]').fill(password)
     await page.locator('[name=password]').press('Enter')
-    await expect(page.locator('header').getByRole('button', { name: user })).toBeVisible()
+    // the start page sends a logged-in user on to a list; wait for it, so the next goto is not cut off
+    await expect.poll(() => pathname(page), next).toMatch(/^\/(sites|links)$/)
     expect(new URL(page.url()).host, next).toBe(new URL(baseURL).host)
   }
 })

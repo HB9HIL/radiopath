@@ -1219,6 +1219,7 @@ export interface components {
             tx_tilt_deg?: number;
         };
         LoginInputBody: {
+            /** @description User name or confirmed address */
             name: string;
             password: string;
         };

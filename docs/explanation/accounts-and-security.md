@@ -4,10 +4,12 @@ How logins, sessions, rate limits, share links and the admin panel work, and why
 
 ## Login and sessions
 
-Everything except the login, registration and password reset pages, the tile
-proxy `/tiles/`, `/healthz`, `/readyz` and the share links under `/s/` (see
-below) requires a login: the API answers 401 without a session, and the app
-sends the browser to `/login`, back to the page afterwards. Users
+Everything except the login, registration and password reset pages, the tile proxy `/tiles/`, `/healthz`, `/readyz` and the
+share links under `/s/` (see below) requires a login: the API answers 401
+without a session, and the app sends the browser to `/login`, back to the page
+afterwards. The login takes the user name or the confirmed address of the
+account; an address counts against the same rate limits as the name it stands
+for, and an unknown address fails exactly like an unknown name. Users
 can register themselves unless `RADIOPATH_REGISTRATION=false`; names are 3 to
 32 characters (letters, digits, `._-`) and unique ignoring case, passwords need
 10 characters (at most 72). Registering asks for an email address and mails a

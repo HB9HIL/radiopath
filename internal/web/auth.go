@@ -140,7 +140,7 @@ func (s *Server) maintenanceErr(ctx context.Context) error {
 
 type LoginInput struct {
 	Body struct {
-		Name     string `json:"name"`
+		Name     string `json:"name" doc:"User name or confirmed address"`
 		Password string `json:"password"`
 	}
 }
@@ -191,12 +191,23 @@ func (s *Server) registerAuth(api huma.API) {
 		})
 }
 
-// login checks the credentials, counts failures against the IP, name-and-IP and name rate limits and starts a session on success; unverified accounts get a 403.
+// login resolves a confirmed address to its user name, checks the credentials, counts failures against the IP, name-and-IP and name rate limits and starts a session on success; unverified accounts get a 403.
 func (s *Server) login(ctx context.Context, in *LoginInput) (*SessionOutput, error) {
 	name := strings.ToLower(strings.TrimSpace(in.Body.Name))
 	ip := reqInfo(ctx).ip
 	if err := s.maintenanceErr(ctx); err != nil {
 		return nil, err
+	}
+	// An address stands for the name of its confirmed account, so both count against the same limits; an unknown
+	// address stays as typed and fails like an unknown name.
+	if strings.Contains(name, "@") {
+		u, err := s.Store.UserByEmail(ctx, name)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, s.storeErr(err)
+		}
+		if err == nil {
+			name = u.Name
+		}
 	}
 
 	limits := []struct {
