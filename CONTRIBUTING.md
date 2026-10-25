@@ -87,6 +87,7 @@ The [development tutorial](docs/tutorials/getting-started.md) walks through the 
 
 CI runs all of these on every pull request: formatting, vet, staticcheck, unit tests with the race detector,
 govulncheck, the doc comment check, the API description check, svelte-check, Prettier and the end-to-end tests.
+CodeQL analyses every pull request as well; look at its findings before asking for a review.
 
 ## Changelog
 

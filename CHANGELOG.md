@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prettier formats TypeScript and Svelte (`make format`), checked by `make check` and in CI (by @HB9HIL)
 - The Docker build context holds only the sources (`.dockerignore` as an allowlist), so a local `.env` or terrain data no longer reach it (by @HB9HIL)
 - `CONTRIBUTING.md`: development setup, code layout, conventions, the checks before a pull request and how the changelog is kept (by @HB9HIL)
+- CodeQL code scanning of the Go code, the web app and the workflows on every push to main, pull request and weekly (by @HB9HIL)
 - The documentation moved from the README into `docs/`, organised as tutorials, how-to guides, reference and explanation (Diátaxis), with a new development tutorial, an architecture overview and guides for API operations, end-to-end tests and releases (by @HB9HIL)
 
 ## [1.2.8] - 2026-10-25

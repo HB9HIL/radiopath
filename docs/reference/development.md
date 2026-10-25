@@ -68,6 +68,12 @@ same branch, tag runs always finish.
 | `docker-image` | on pushes: packs both binaries with `docker/ci.Dockerfile` into a multi-arch image `ghcr.io/radiopath/radiopath` tagged `:<sha>`, plus `:staging` on main or `:X.Y.Z` and `:latest` on a tag |
 | `release` | on tags: the GitHub release with the changelog section as notes and the binaries attached |
 
+A second workflow, `.github/workflows/codeql.yml`, runs GitHub CodeQL on pushes to main, on pull requests and every
+Monday: taint analysis of the Go code (built with the `dist` placeholder, since the autobuilder cannot handle the
+embedded web app), the TypeScript of the web app (generated files excluded) and the workflows themselves. Findings
+appear in the repository's Security tab and as annotations on pull requests; they do not block CI or releases. The
+"default setup" of code scanning must stay off, it cannot run next to this workflow.
+
 Every run packs the binaries it built itself: the version comes from `git describe` at build time, so an image is
 never retagged from another run. Each job has its own Go build cache, keyed by job and architecture.
 

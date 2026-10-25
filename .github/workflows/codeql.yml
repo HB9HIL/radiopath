@@ -1,0 +1,58 @@
+name: CodeQL
+
+# Taint analysis of our own code (request data reaching SQL, files, URLs, redirects, HTML), next to staticcheck and
+# govulncheck in ci.yml. Findings show up in the Security tab and on pull requests; nothing here blocks a release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly as well: new queries find problems in code that has not changed.
+  schedule:
+    - cron: "17 4 * * 1"
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v7
+      - if: matrix.language == 'go'
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config: |
+            paths-ignore:
+              - web/src/lib/api.gen.ts
+              - web/src/lib/components/ui
+      # The autobuilder fails on go:embed of the SPA, which is not part of this analysis: build with the placeholder.
+      - if: matrix.build-mode == 'manual'
+        run: |
+          mkdir -p internal/webui/dist && touch internal/webui/dist/index.html
+          go build ./...
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
