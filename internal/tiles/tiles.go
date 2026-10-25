@@ -91,7 +91,6 @@ type Proxy struct {
 	ClientIP    func(*http.Request) string
 
 	Client *http.Client
-	prefix string
 }
 
 const missWindow = time.Minute
@@ -106,13 +105,15 @@ func (p *Proxy) client() *http.Client {
 	return &http.Client{Timeout: 8 * time.Second}
 }
 
-// key returns the cache key of a tile, prefixed with a hash of the upstream URL.
+// prefix namespaces the cache keys with a hash of the upstream URL; computed per call, so concurrent requests share no state.
+func (p *Proxy) prefix() string {
+	sum := sha1.Sum([]byte(p.Upstream))
+	return "tile:" + hex.EncodeToString(sum[:4]) + ":"
+}
+
+// key returns the cache key of a tile.
 func (p *Proxy) key(z, x, y int) string {
-	if p.prefix == "" {
-		sum := sha1.Sum([]byte(p.Upstream))
-		p.prefix = "tile:" + hex.EncodeToString(sum[:4]) + ":"
-	}
-	return fmt.Sprintf("%s%d/%d/%d", p.prefix, z, x, y)
+	return fmt.Sprintf("%s%d/%d/%d", p.prefix(), z, x, y)
 }
 
 // upstreamURL fills the {z}, {x}, {y}, {s} and {r} placeholders of the upstream template.
@@ -173,7 +174,7 @@ func (p *Proxy) allow(ctx context.Context, ip string) bool {
 	if p.MissesPerIP <= 0 || p.Cache == nil || ip == "" {
 		return true
 	}
-	n, err := p.Cache.Incr(ctx, p.prefix+"limit:"+ip, missWindow)
+	n, err := p.Cache.Incr(ctx, p.prefix()+"limit:"+ip, missWindow)
 	if err != nil {
 		p.Log.Warn("tile limit", "err", err)
 		return true

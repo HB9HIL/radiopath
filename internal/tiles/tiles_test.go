@@ -167,6 +167,16 @@ func TestUpstreamURL(t *testing.T) {
 	}
 }
 
+// Concurrent requests build keys from one Proxy; go test -race fails on any lazily written state.
+func TestKeyConcurrent(t *testing.T) {
+	p := &Proxy{Upstream: "https://example.org/{z}/{x}/{y}.png"}
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Go(func() { p.key(1, i, 1) })
+	}
+	wg.Wait()
+}
+
 func TestStatic(t *testing.T) {
 	tile := func(c color.RGBA) []byte {
 		img := image.NewRGBA(image.Rect(0, 0, 256, 256))
