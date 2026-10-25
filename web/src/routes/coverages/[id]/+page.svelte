@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Copy from '@lucide/svelte/icons/copy';
+	import Pencil from '@lucide/svelte/icons/pencil';
 	import { page } from '$app/state';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { toast } from 'svelte-sonner';
@@ -7,10 +9,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import CoverageDetail from '$lib/CoverageDetail.svelte';
 	import { clock } from '$lib/format';
+	import DetailSkeleton from '$lib/DetailSkeleton.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
 	import JobBadge from '$lib/JobBadge.svelte';
 	import LegendEditor from '$lib/LegendEditor.svelte';
 	import { notifyError } from '$lib/notify';
+	import RowActions from '$lib/RowActions.svelte';
 	import ShareDialog from '$lib/ShareDialog.svelte';
 
 	const id = Number(page.params.id);
@@ -64,14 +68,24 @@
 	const save = (v: CoverageView) => api.PUT('/api/coverages/{id}/view', { ...path, body: v });
 </script>
 
-{#if c.data && job}
+{#if c.isPending}
+	<DetailSkeleton />
+{:else if c.data && job}
 	{@const d = c.data}
 	<CoverageDetail {d} path="/coverages/{id}" {save}>
 		{#snippet badge()}<JobBadge id="job-badge" state={job.state} />{/snippet}
 		{#snippet actions()}
-			<Button variant="outline" href="/coverages">Back</Button>
-			<Button variant="outline" href="/coverages/{id}/edit">Edit</Button>
-			<Button variant="outline" href="/coverages/new?from={id}">Duplicate</Button>
+			<Button variant="outline" class="hidden sm:inline-flex" href="/coverages">Back</Button>
+			<Button variant="outline" class="hidden sm:inline-flex" href="/coverages/{id}/edit">Edit</Button>
+			<Button variant="outline" class="hidden sm:inline-flex" href="/coverages/new?from={id}">Duplicate</Button>
+			<div class="sm:hidden">
+				<RowActions
+					actions={[
+						{ label: 'Edit', icon: Pencil, href: `/coverages/${id}/edit` },
+						{ label: 'Duplicate', icon: Copy, href: `/coverages/new?from=${id}` }
+					]}
+				/>
+			</div>
 			<ShareDialog
 				what="coverage"
 				hint={d.overlays.length ? ' It shows the map as you have it here, including the rasters on top.' : ''}

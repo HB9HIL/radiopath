@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The web interface is a SvelteKit app embedded in the binary instead of server-rendered pages: no reload after saving, a coverage page picks up its finished job by itself. Page, share and mail link URLs stay the same; only the admin panel is still rendered by the server (by @HB9HIL)
 - Rasters, reports and job events answer 401 without a session instead of redirecting to the login (by @HB9HIL)
 - The header carries the account, the theme, the API docs and logout in one menu; on phones the sections sit in a tab bar at the bottom (by @HB9HIL)
+- Link and coverage pages open with their key figures as tiles; on phones the map fits the screen and the less used actions sit in a menu (by @HB9HIL)
 - Lists keep their row actions in one menu, show fewer columns on phones, an empty state with a way forward and a placeholder while loading (by @HB9HIL)
 - Messages and errors after an action appear as toasts, deleting asks in a dialog of the app instead of the browser's own (by @HB9HIL)
 - `make dev` serves the app on http://localhost:5173, from the Vite dev server in Docker that proxies to the Go server (by @HB9HIL)

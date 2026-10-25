@@ -6,6 +6,7 @@
 	import { day, offBoresight, signed } from '$lib/format';
 	import { linkMap } from '$lib/map';
 	import PageHead from '$lib/PageHead.svelte';
+	import StatTiles from '$lib/StatTiles.svelte';
 
 	// path is where the report lives: /links/<id> for the owner, /s/l/<token> for a visitor; actions are the owner's buttons.
 	let { d, path, shared = false, actions }: { d: LinkDetail; path: string; shared?: boolean; actions?: Snippet } = $props();
@@ -26,6 +27,25 @@
 	<Alert.Root class="mb-4"
 		>Shared read-only view{#if d.share}, valid until {day(d.share.expires_at)}{/if}.</Alert.Root
 	>
+{/if}
+{#if r}
+	<StatTiles
+		tiles={[
+			{
+				label: 'Link margin, median',
+				value: `${signed(r.margin_db)} dB`,
+				sub: `${signed(r.margin_rel_db)} dB ${d.reliability_pct.toFixed(0)} % of the time`,
+				tone: r.margin_db >= 0 ? 'ok' : 'bad'
+			},
+			{
+				label: 'Received level',
+				value: `${r.rx_level_dbm.toFixed(1)} dBm`,
+				sub: d.measured_rx_dbm != null ? `measured ${d.measured_rx_dbm.toFixed(1)} dBm` : undefined
+			},
+			{ label: 'Distance', value: `${(r.distance_m / 1000).toFixed(2)} km`, sub: `bearing ${r.bearing_deg.toFixed(1)} deg` },
+			{ label: 'Path loss (ITM)', value: `${r.path_loss_db.toFixed(1)} dB`, sub: r.mode }
+		]}
+	/>
 {/if}
 <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
 	<div>
@@ -79,16 +99,6 @@
 		{#if !r}
 			<Alert.Root variant="destructive">Calculation failed: {d.error}</Alert.Root>
 		{:else}
-			<div class="mb-3 rounded-lg border bg-card p-3">
-				<div class="flex items-baseline justify-between gap-4">
-					<span class="text-xs text-muted-foreground">Link margin, median</span>
-					<span class={['font-mono text-[20px] font-bold', r.margin_db >= 0 ? 'text-ok' : 'text-destructive']}>{signed(r.margin_db)} dB</span>
-				</div>
-				<div class="mt-1 flex items-baseline justify-between gap-4 border-t pt-1">
-					<span class="text-xs text-muted-foreground">{d.reliability_pct.toFixed(0)} % of the time</span>
-					<span class={['font-mono text-[13px]', r.margin_rel_db >= 0 ? 'text-ok' : 'text-destructive']}>{signed(r.margin_rel_db)} dB</span>
-				</div>
-			</div>
 			<table class="kv">
 				<tbody>
 					<tr><td>Distance</td><td class="num">{(r.distance_m / 1000).toFixed(2)} km</td></tr>

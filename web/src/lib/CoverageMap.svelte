@@ -124,7 +124,7 @@
 		<div class="flex flex-wrap items-center gap-3">
 			<label class="text-xs text-muted-foreground" for="opacity">Raster opacity</label>
 			<input
-				class="w-40 accent-primary"
+				class="min-w-0 flex-1 accent-primary sm:w-40 sm:flex-none"
 				id="opacity"
 				type="range"
 				min="10"
@@ -135,11 +135,11 @@
 				onchange={store}
 			/>
 			<span class="font-mono text-xs">{opacity} %</span>
-			<label class="flex items-center gap-2 text-xs text-muted-foreground">
+			<label class="flex min-h-10 items-center gap-2 text-xs text-muted-foreground">
 				<input
 					id="circles"
 					type="checkbox"
-					class="accent-primary"
+					class="size-4 accent-primary"
 					bind:checked={circles}
 					onchange={() => {
 						if (circles) m.addLayer(circleLayer);
@@ -154,10 +154,10 @@
 				<p class="mb-1 text-xs text-muted-foreground">{save ? 'Also show' : 'Also shown'}</p>
 				<div class="flex flex-col gap-1">
 					{#each d.overlays as o (o.id)}
-						<label class="flex flex-wrap items-center gap-2 text-[13px]">
+						<label class="flex min-h-10 flex-wrap items-center gap-2 text-[13px]">
 							<input
 								type="checkbox"
-								class="accent-primary"
+								class="size-4 accent-primary"
 								data-overlay={o.id}
 								bind:checked={checked[o.id]}
 								onchange={() => {

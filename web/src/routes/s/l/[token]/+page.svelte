@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { api, call } from '$lib/api';
+	import DetailSkeleton from '$lib/DetailSkeleton.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
 	import LinkDetail from '$lib/LinkDetail.svelte';
 
@@ -12,7 +13,9 @@
 	}));
 </script>
 
-{#if l.data}
+{#if l.isPending}
+	<DetailSkeleton />
+{:else if l.data}
 	<LinkDetail d={l.data} path="/s/l/{token}" shared />
 {:else if l.error}
 	<h1 class="mb-4 text-lg font-semibold">Not found</h1>

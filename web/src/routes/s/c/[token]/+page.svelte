@@ -3,6 +3,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import { api, call } from '$lib/api';
 	import CoverageDetail from '$lib/CoverageDetail.svelte';
+	import DetailSkeleton from '$lib/DetailSkeleton.svelte';
 	import FormErrors from '$lib/FormErrors.svelte';
 
 	const token = page.params.token ?? '';
@@ -12,7 +13,9 @@
 	}));
 </script>
 
-{#if c.data}
+{#if c.isPending}
+	<DetailSkeleton />
+{:else if c.data}
 	<CoverageDetail d={c.data} path="/s/c/{token}" shared />
 {:else if c.error}
 	<h1 class="mb-4 text-lg font-semibold">Not found</h1>

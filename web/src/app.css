@@ -138,7 +138,8 @@
 
 /* Leaflet and the server-rendered plots; unlayered on purpose: leaflet.css is unlayered and would beat anything inside @layer */
 .map {
-	height: 520px;
+	height: min(520px, 55vh);
+	min-height: 280px;
 	width: 100%;
 	border: 1px solid var(--cp-line);
 }

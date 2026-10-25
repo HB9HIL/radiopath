@@ -7,6 +7,7 @@
 	import { day } from '$lib/format';
 	import LegendTable from '$lib/LegendTable.svelte';
 	import PageHead from '$lib/PageHead.svelte';
+	import StatTiles from '$lib/StatTiles.svelte';
 
 	// path is where report and rasters live: /coverages/<id> for the owner, /s/c/<token> for a visitor.
 	let {
@@ -41,6 +42,18 @@
 {/if}
 {@render status?.()}
 {#if d.note}<Alert.Root class="mb-4 border-warn/50 text-warn">{d.note}</Alert.Root>{/if}
+<StatTiles
+	tiles={[
+		{ label: 'Range', value: `${d.range_km.toFixed(1)} km`, sub: `${d.resolution_m.toFixed(0)} m resolution` },
+		{ label: 'Frequency', value: `${d.frequency_mhz.toFixed(3)} MHz`, sub: d.polarization },
+		{ label: 'Transmitter', value: `${d.tx_power_dbm.toFixed(1)} dBm`, sub: d.tx_antenna || 'omnidirectional' },
+		{
+			label: 'Computed',
+			value: d.computed_at ? new Date(d.computed_at).toLocaleString('sv-SE').slice(0, 16) : 'not yet',
+			sub: d.computed_at ? `in ${d.compute_time}` : undefined
+		}
+	]}
+/>
 <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
 	<div>
 		<h2 class="mb-2 text-xs font-medium text-muted-foreground">Parameters</h2>
